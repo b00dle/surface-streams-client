@@ -80,6 +80,9 @@ class UdpVideoSender(GstPipeline):
     def set_port(self, port):
         self.udp_sink.set_property("port", port)
 
+    def set_host(self, host):
+        self.udp_sink.set_property("host", host)
+
     def on_bus_message(self, bus, message):
         """ Resets Start button based on playback/error state. """
         t = message.type

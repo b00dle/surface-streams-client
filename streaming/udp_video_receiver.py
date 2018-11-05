@@ -50,6 +50,10 @@ class UdpVideoReceiver(GstPipeline):
         self.link_elements(self.jpeg_decoder, self.videoconvert)
         self.link_elements(self.videoconvert, self.videosink)
 
+    #def start(self, port):
+    #    self.udp_src.set_property("port", port)
+    #    self.pipeline.set_state(Gst.State.PLAYING)
+
     def start(self, port):
         self.udp_src.set_property("port", port)
         self.pipeline.set_state(Gst.State.PLAYING)
