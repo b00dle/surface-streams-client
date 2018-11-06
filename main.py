@@ -17,7 +17,7 @@ def create_timestamp():
     return datetime.now().strftime(("%Y-%m-%d %H:%M:%S"))
 
 
-def run_udp_pipeline(send_port, receive_port):
+def run_udp_pipeline(send_port):
     global SENDER, RECEIVER
     from streaming.udp_video_sender import UdpVideoSender
     from streaming.udp_video_receiver import UdpVideoReceiver
@@ -29,7 +29,7 @@ def run_udp_pipeline(send_port, receive_port):
 
     r = requests.post("http://"+SERVER_IP+":5000/api/clients", data={}, json={
         "in-ip": MY_IP,
-        "in-port": 5001,
+        "in-port": send_port,
         "name": "python-client-"+create_timestamp(),
         "out-port": -1
     })
@@ -78,5 +78,8 @@ if __name__ == "__main__":
     print("  > My IP:", MY_IP)
     print("  > Server IP:", SERVER_IP)
 
-    run_udp_pipeline(5001, 5002)
+    # run each call reperately to create 3 clients
+    run_udp_pipeline(5001)
+    #run_udp_pipeline(5002)
+    #run_udp_pipeline(5003)
     shutdown_udp_pipeline()
