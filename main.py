@@ -72,6 +72,7 @@ def run_realsense_pipeline(send_port, realsense_dir):
     SENDER = RealsenseSender(realsense_dir=realsense_dir)
     SENDER.set_port(send_port)
     SENDER.set_host(SERVER_IP)
+    SENDER.start()
 
     r = requests.post("http://" + SERVER_IP + ":5000/api/clients", data={}, json={
         "in-ip": MY_IP,
@@ -80,7 +81,6 @@ def run_realsense_pipeline(send_port, realsense_dir):
         "out-port": -1
     })
     if r.status_code == 200:
-        SENDER.start()
         if r.headers['content-type'] == "application/json":
             data = r.json()
             print("### SUCCESS\n  > data", data)
@@ -96,14 +96,45 @@ def run_realsense_pipeline(send_port, realsense_dir):
 
     Gtk.main()
 
+
 def shutdown_realsense_pipeline():
     shutdown_udp_pipeline()
     global SENDER
     SENDER.stop()
-    print("### Realsense process ended with code", SENDER.return_code)
+    print("### Realsense process finished with code", SENDER.return_code)
 
-if __name__ == "__main__":
+
+def test():
+    import subprocess
+    global REALSENSE_DIR
+    REALSENSE_DIR = "/home/companion/surface-streams/"
+    args = []
+    args.append(REALSENSE_DIR + "realsense")
+    args.append("!")
+    args.append("\"videoconvert ! tee name=t ! queue ! jpegenc ! rtpgstpay ! udpsink host=192.168.1.101 port=5001  t. ! queue ! autovideosink\"")
+    p = subprocess.Popen(args)
+    while True:
+        pass
+
+def test2():
+    import subprocess
+    global REALSENSE_DIR
+    REALSENSE_DIR = "/home/companion/surface-streams/"
+    args = []
+    args.append(REALSENSE_DIR + "realsense")
+    args.append("!")
+    args.append(
+        "\"videoconvert ! queue ! jpegenc ! rtpgstpay ! udpsink host=192.168.1.101 port=5001 \"")
+    p = subprocess.Popen(args)
+    while True:
+        pass
+
+
+def main():
+    global SENDER, RECEIVER, MY_IP, SERVER_IP, METHOD, REALSENSE_DIR
+
     METHOD = "realsense"
+    #METHOD = "filesrc"
     REALSENSE_DIR = "/home/companion/surface-streams/"
 
     if len(sys.argv) > 1:
@@ -133,11 +164,19 @@ if __name__ == "__main__":
     # run each call separately to create 3 clients
     if METHOD == "realsense":
         run_realsense_pipeline(5001, REALSENSE_DIR)
-        #run_realsense_pipeline(5002, REALSENSE_DIR)
-        #run_realsense_pipeline(5003, REALSENSE_DIR)
+        # run_realsense_pipeline(5002, REALSENSE_DIR)
+        # run_realsense_pipeline(5003, REALSENSE_DIR)
         shutdown_realsense_pipeline()
     elif METHOD == "filesrc":
-        run_udp_pipeline(5001)
-        #run_udp_pipeline(5002)
-        #run_udp_pipeline(5003)
+        # run_udp_pipeline(5001)
+        run_udp_pipeline(5002)
+        # run_udp_pipeline(5003)
         shutdown_udp_pipeline()
+    else:
+        print("FAILURE")
+        print("  > method '" + METHOD + "' not recognized.")
+
+if __name__ == "__main__":
+    #test()
+    #test2()
+    main()

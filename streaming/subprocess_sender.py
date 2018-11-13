@@ -31,6 +31,10 @@ class SubProcessWrapper(object):
         """
         if self._running or len(self._process_args) == 0:
             return
+        cmd_str = ""
+        for arg in self._process_args:
+            cmd_str += " " + arg
+        print("Running:", cmd_str)
         self._subprocess = subprocess.Popen(self._process_args)
         self._running = True
 
@@ -55,12 +59,15 @@ class RealsenseSender(SubProcessWrapper):
         self._port = 5000
 
     def _compute_launch_command(self):
-        self._set_process_args([
-            self._realsense_dir+"realsense",
-            "!",
-            "\"videoconvert ! jpegenc ! rtpgstpay ! "
-            "udpsink host=" + self._host + " port=" + self._port + "\""
-        ])
+        gst_launch_cmd = "videoconvert ! tee name=t ! queue ! jpegenc ! rtpgstpay ! "
+        gst_launch_cmd += "udpsink host=" + self._host + " port=" + str(self._port) + " "
+        gst_launch_cmd += "t. ! queue ! fpsdisplaysink"
+        gst_launch_cmd = '"' + gst_launch_cmd + ' "'
+        args = []
+        args.append(self._realsense_dir+"realsense")
+        args.append("!")
+        args.append(gst_launch_cmd)
+        self._set_process_args(args)
 
     def set_host(self, host):
         """
