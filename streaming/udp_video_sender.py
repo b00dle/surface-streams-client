@@ -3,14 +3,21 @@ import gi
 gi.require_version("Gst", "1.0")
 gi.require_version("Gtk", "3.0")
 gi.require_version("GstVideo", "1.0")
-from gi.repository import Gst, Gtk, GstVideo, GdkX11
+from gi.repository import Gst, Gtk, GstVideo, GdkX11, GObject
 from streaming.gst_pipeline import GstPipeline
+from streaming.stats_monitor import UdpStatsMonitor
+
 
 class UdpVideoSender(GstPipeline):
     def __init__(self):
         super().__init__("Udp-Video-Sender")
         self._init_ui()
         self._init_gst_pipe()
+        self.monitor = UdpStatsMonitor()
+        self.monitor.link(self.pipeline, "udp_sink")
+
+    def cleanup(self):
+        self.monitor.unlink()
 
     def _init_ui(self):
         self.window = Gtk.Window(Gtk.WindowType.TOPLEVEL)
@@ -42,6 +49,7 @@ class UdpVideoSender(GstPipeline):
         self.jpeg_encoder = self.make_add_element("jpegenc", "jpeg_encoder")
         self.rtp_packer = self.make_add_element("rtpgstpay", "rtp_packer")
         self.udp_sink = self.make_add_element("udpsink", "udp_sink")
+
         ## display pipeline
         self.video_queue = self.make_add_element("queue", "video_queue")
         self.converter2 = self.make_add_element("videoconvert", "converter2")
@@ -87,13 +95,11 @@ class UdpVideoSender(GstPipeline):
         """ Resets Start button based on playback/error state. """
         t = message.type
         if t == Gst.MessageType.EOS:
-            self.pipeline.set_state(Gst.State.NULL)
-            self.button.set_label("Start")
+            self._pipe_stop()
         elif t == Gst.MessageType.ERROR:
-            self.pipeline.set_state(Gst.State.NULL)
             err, debug = message.parse_error()
             print("Error: %s" % err, debug)
-            self.button.set_label("Start")
+            self._pipe_stop()
 
     def on_bus_sync_message(self, bus, message):
         pass
@@ -111,14 +117,22 @@ class UdpVideoSender(GstPipeline):
             filepath = self.entry.get_text().strip()
             if os.path.isfile(filepath):
                 filepath = os.path.realpath(filepath)
-                self.button.set_label("Stop")
                 self.filesrc.set_property("location", filepath)
-                self.pipeline.set_state(Gst.State.PLAYING)
+                self._pipe_start()
             else:
                 print("given path is no file")
         else:
-            self.pipeline.set_state(Gst.State.NULL)
-            self.button.set_label("Start")
+            self._pipe_stop()
+
+    def _pipe_stop(self):
+        self.pipeline.set_state(Gst.State.NULL)
+        self.button.set_label("Start")
+        self.monitor.stop()
+
+    def _pipe_start(self):
+        self.button.set_label("Stop")
+        self.pipeline.set_state(Gst.State.PLAYING)
+        self.monitor.start()
 
     def decoder_pad_added(self, decoder, pad):
         """
@@ -132,6 +146,7 @@ class UdpVideoSender(GstPipeline):
             # link to video queue sink
             queue_sink = self.queue.sinkpads[0]
             self.link_elements(pad, queue_sink)
+
 
 class UdpVideoSenderAlt(GstPipeline):
     def __init__(self):

@@ -17,6 +17,9 @@ class GstPipeline(object):
     def __del__(self):
         self.pipeline.set_state(Gst.State.NULL)
 
+    def cleanup(self):
+        pass
+
     def on_bus_message(self, bus, message):
         """ override in derived classes for message handling. """
         pass

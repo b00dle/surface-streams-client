@@ -18,6 +18,22 @@ REALSENSE_DIR = "./"
 def create_timestamp():
     return datetime.now().strftime(("%Y-%m-%d %H:%M:%S"))
 
+def print_sender_stats():
+    global SENDER
+    data = SENDER.udp_sink.emit(
+        "get_stats",
+        SENDER.udp_sink.get_property("host"),
+        SENDER.udp_sink.get_property("port")
+    )
+    stats = {
+        data.nth_field_name(n) : data.get_value(data.nth_field_name(n))
+        for n in range(0, data.n_fields())
+    }
+    print("> udp sink stats:", stats)
+    #pprint(data.to_string())
+    # ('multiudpsink-stats, bytes-sent=(guint64)0, packets-sent=(guint64)0, '
+    #'connect-time=(guint64)1543242717444511000, disconnect-time=(guint64)0;')
+    GObject.timeout_add_seconds(1, print_sender_stats)
 
 def run_udp_pipeline(send_port):
     global SENDER, RECEIVER
@@ -28,7 +44,8 @@ def run_udp_pipeline(send_port):
     SENDER = UdpVideoSender()
     SENDER.set_port(send_port)
     SENDER.set_host(SERVER_IP)
-
+    #GObject.timeout_add_seconds(1, print_sender_stats)
+    #pprint(dir(GObject))
     r = requests.post("http://"+SERVER_IP+":5000/api/clients", data={}, json={
         "in-ip": MY_IP,
         "in-port": send_port,
@@ -54,6 +71,7 @@ def run_udp_pipeline(send_port):
 
 def shutdown_udp_pipeline():
     if RECEIVER is not None:
+        SENDER.cleanup()
         url = "http://"+SERVER_IP+":5000/api/clients/" + RECEIVER[0]
         r = requests.delete(url)
         if r.status_code == 200:
@@ -133,8 +151,8 @@ def test2():
 def main():
     global SENDER, RECEIVER, MY_IP, SERVER_IP, METHOD, REALSENSE_DIR
 
-    METHOD = "realsense"
-    #METHOD = "filesrc"
+    #METHOD = "realsense"
+    METHOD = "filesrc"
     REALSENSE_DIR = "/home/companion/surface-streams/"
 
     if len(sys.argv) > 1:
