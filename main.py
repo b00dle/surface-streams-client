@@ -50,7 +50,8 @@ def run_udp_pipeline(send_port):
         "in-ip": MY_IP,
         "in-port": send_port,
         "name": "python-client-"+create_timestamp(),
-        "out-port": -1
+        "out-port": -1,
+        "streaming-protocol": "jpeg"
     })
     if r.status_code == 200:
         if r.headers['content-type'] == "application/json":
@@ -96,7 +97,8 @@ def run_realsense_pipeline(send_port, realsense_dir):
         "in-ip": MY_IP,
         "in-port": send_port,
         "name": "python-client-" + create_timestamp(),
-        "out-port": -1
+        "out-port": -1,
+        "streaming-protocol": "jpeg"
     })
     if r.status_code == 200:
         if r.headers['content-type'] == "application/json":
@@ -151,8 +153,8 @@ def test2():
 def main():
     global SENDER, RECEIVER, MY_IP, SERVER_IP, METHOD, REALSENSE_DIR
 
-    #METHOD = "realsense"
-    METHOD = "filesrc"
+    METHOD = "realsense"
+    #METHOD = "filesrc"
     REALSENSE_DIR = "/home/companion/surface-streams/"
 
     if len(sys.argv) > 1:

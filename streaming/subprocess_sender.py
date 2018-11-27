@@ -23,6 +23,9 @@ class SubProcessWrapper(object):
         if not self._running:
             self._process_args = args
 
+    def cleanup(self):
+        pass
+
     def start(self):
         """
         Starts subprocess with process_args set.
