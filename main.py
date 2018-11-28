@@ -14,6 +14,7 @@ MY_IP = "0.0.0.0"
 SERVER_IP = "0.0.0.0"
 METHOD = "filesrc"
 REALSENSE_DIR = "./"
+PROTOCOL = "jpeg"
 
 def create_timestamp():
     return datetime.now().strftime(("%Y-%m-%d %H:%M:%S"))
@@ -35,13 +36,13 @@ def print_sender_stats():
     #'connect-time=(guint64)1543242717444511000, disconnect-time=(guint64)0;')
     GObject.timeout_add_seconds(1, print_sender_stats)
 
-def run_udp_pipeline(send_port):
+def run_udp_pipeline(send_port, protocol="jpeg"):
     global SENDER, RECEIVER
     from streaming.udp_video_sender import UdpVideoSender
     from streaming.udp_video_receiver import UdpVideoReceiver
     GObject.threads_init()
     Gst.init(None)
-    SENDER = UdpVideoSender()
+    SENDER = UdpVideoSender(protocol=protocol)
     SENDER.set_port(send_port)
     SENDER.set_host(SERVER_IP)
     #GObject.timeout_add_seconds(1, print_sender_stats)
@@ -59,7 +60,7 @@ def run_udp_pipeline(send_port):
             print("### SUCCESS\n  > data", data)
             print("  > initializing receiver")
             print("  > port", data["out-port"])
-            RECEIVER = (data["uuid"], UdpVideoReceiver())
+            RECEIVER = (data["uuid"], UdpVideoReceiver(protocol=protocol))
             RECEIVER[1].start(data["out-port"])
         else:
             print("### API error\n > expecting response json")
@@ -82,13 +83,13 @@ def shutdown_udp_pipeline():
             print("  > reason", r.reason)
 
 
-def run_realsense_pipeline(send_port, realsense_dir):
+def run_realsense_pipeline(send_port, realsense_dir, protocol="jpeg"):
     global SENDER, RECEIVER
     from streaming.subprocess_sender import RealsenseSender
     from streaming.udp_video_receiver import UdpVideoReceiver
     GObject.threads_init()
     Gst.init(None)
-    SENDER = RealsenseSender(realsense_dir=realsense_dir)
+    SENDER = RealsenseSender(realsense_dir=realsense_dir,protocol=protocol)
     SENDER.set_port(send_port)
     SENDER.set_host(SERVER_IP)
     SENDER.start()
@@ -98,7 +99,7 @@ def run_realsense_pipeline(send_port, realsense_dir):
         "in-port": send_port,
         "name": "python-client-" + create_timestamp(),
         "out-port": -1,
-        "streaming-protocol": "jpeg"
+        "streaming-protocol": protocol
     })
     if r.status_code == 200:
         if r.headers['content-type'] == "application/json":
@@ -106,7 +107,7 @@ def run_realsense_pipeline(send_port, realsense_dir):
             print("### SUCCESS\n  > data", data)
             print("  > initializing receiver")
             print("  > port", data["out-port"])
-            RECEIVER = (data["uuid"], UdpVideoReceiver())
+            RECEIVER = (data["uuid"], UdpVideoReceiver(protocol=protocol))
             RECEIVER[1].start(data["out-port"])
         else:
             print("### API error\n > expecting response json")
@@ -151,11 +152,12 @@ def test2():
 
 
 def main():
-    global SENDER, RECEIVER, MY_IP, SERVER_IP, METHOD, REALSENSE_DIR
+    global SENDER, RECEIVER, MY_IP, SERVER_IP, METHOD, REALSENSE_DIR, PROTOCOL
 
     METHOD = "realsense"
     #METHOD = "filesrc"
     REALSENSE_DIR = "/home/companion/surface-streams/"
+    PROTOCOL = "h264"
 
     if len(sys.argv) > 1:
         arg_i = 1
@@ -183,13 +185,13 @@ def main():
 
     # run each call separately to create 3 clients
     if METHOD == "realsense":
-        run_realsense_pipeline(5001, REALSENSE_DIR)
+        run_realsense_pipeline(5001, REALSENSE_DIR, PROTOCOL)
         # run_realsense_pipeline(5002, REALSENSE_DIR)
         # run_realsense_pipeline(5003, REALSENSE_DIR)
         shutdown_realsense_pipeline()
     elif METHOD == "filesrc":
         # run_udp_pipeline(5001)
-        run_udp_pipeline(5002)
+        run_udp_pipeline(5002, PROTOCOL)
         # run_udp_pipeline(5003)
         shutdown_udp_pipeline()
     else:

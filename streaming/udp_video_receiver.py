@@ -18,8 +18,9 @@ class UdpVideoReceiver(GstPipeline):
         rtpgstdepay ! jpegdec ! videoconvert ! gtksink
     '''
 
-    def __init__(self):
+    def __init__(self, protocol="jpeg"):
         super().__init__("Udp-Video-Receiver")
+        self._protocol = protocol
         self._init_ui()
         self._init_gst_pipe()
 
@@ -35,19 +36,36 @@ class UdpVideoReceiver(GstPipeline):
     def _init_gst_pipe(self):
         # create necessary elements
         self.udp_src = self.make_add_element("udpsrc", "udpsrc")
-        self.udp_src.set_property("caps", Gst.caps_from_string("application/x-rtp, media=(string)application, clock-rate=(int)90000, encoding-name=(string)X-GST, caps=(string)aW1hZ2UvanBlZywgc29mLW1hcmtlcj0oaW50KTAsIHdpZHRoPShpbnQpMTI4MCwgaGVpZ2h0PShpbnQpNzIwLCBwaXhlbC1hc3BlY3QtcmF0aW89KGZyYWN0aW9uKTEvMSwgZnJhbWVyYXRlPShmcmFjdGlvbikyNDAwMC8xMDAx, capsversion=(string)0, payload=(int)96, ssrc=(uint)2277765570, timestamp-offset=(uint)3095164038, seqnum-offset=(uint)16152"))
         self.src_queue = self.make_add_element("queue", "src_queue")
-        self.rtp_depay = self.make_add_element("rtpgstdepay", "rtp_depay")
-        self.jpeg_decoder = self.make_add_element("jpegdec", "jpeg_decoder")
+        if self._protocol == "jpeg":
+            self.udp_src.set_property("caps", Gst.caps_from_string(
+                "application/x-rtp, media=(string)application, clock-rate=(int)90000, encoding-name=(string)X-GST, caps=(string)aW1hZ2UvanBlZywgc29mLW1hcmtlcj0oaW50KTAsIHdpZHRoPShpbnQpMTI4MCwgaGVpZ2h0PShpbnQpNzIwLCBwaXhlbC1hc3BlY3QtcmF0aW89KGZyYWN0aW9uKTEvMSwgZnJhbWVyYXRlPShmcmFjdGlvbikyNDAwMC8xMDAx, capsversion=(string)0, payload=(int)96, ssrc=(uint)2277765570, timestamp-offset=(uint)3095164038, seqnum-offset=(uint)16152"))
+            self.rtp_depay = self.make_add_element("rtpgstdepay", "rtp_depay")
+            self.decoder = self.make_add_element("jpegdec", "jpeg_decoder")
+        elif self._protocol == "vp8":
+            self.udp_src.set_property("caps", Gst.caps_from_string(
+                "application/x-rtp, media=(string)video, clock-rate=(int)90000, encoding-name=(string)VP8-DRAFT-IETF-01, payload=(int)96, ssrc=(uint)2990747501, clock-base=(uint)275641083, seqnum-base=(uint)34810"))
+            self.rtp_depay = self.make_add_element("rtpvp8depay", "v8_depay")
+            self.decoder = self.make_add_element("vp8dec", "v8_decoder")
+        elif self._protocol == "mp4":
+            self.udp_src.set_property("caps", Gst.caps_from_string(
+                "application/x-rtp, media=(string)video, clock-rate=(int)90000, encoding-name=(string)MP4V-ES, profile-level-id=(string)1, config=(string)000001b001000001b58913000001000000012000c48d8800cd3204709443000001b24c61766335362e312e30, payload=(int)96, ssrc=(uint)2873740600, timestamp-offset=(uint)391825150, seqnum-offset=(uint)2980"))
+            self.rtp_depay = self.make_add_element("rtpmp4vdepay", "mp4_depay")
+            self.decoder = self.make_add_element("avdec_mpeg4", "mp4_decoder")
+        elif self._protocol == "h264":
+            self.udp_src.set_property("caps", Gst.caps_from_string(
+                "application/x-rtp, media=video, clock-rate=90000, encoding-name=H264, packetization-mode=1, profile-level-id=f40032, payload=96, ssrc=1577364544, timestamp-offset=1721384841, seqnum-offset=7366, a-framerate=25"))
+            self.rtp_depay = self.make_add_element("rtph264depay", "mp4_depay")
+            self.decoder = self.make_add_element("avdec_h264", "mp4_decoder")
         self.videoconvert = self.make_add_element("videoconvert", "video_converter")
         self.videosink = self.make_add_element("gtksink", "videosink")
         self.vbox_layout.add(self.videosink.props.widget)
         self.videosink.props.widget.show()
-
+        # link elements
         self.link_elements(self.udp_src, self.src_queue)
         self.link_elements(self.src_queue, self.rtp_depay)
-        self.link_elements(self.rtp_depay, self.jpeg_decoder)
-        self.link_elements(self.jpeg_decoder, self.videoconvert)
+        self.link_elements(self.rtp_depay, self.decoder)
+        self.link_elements(self.decoder, self.videoconvert)
         self.link_elements(self.videoconvert, self.videosink)
 
     #def start(self, port):

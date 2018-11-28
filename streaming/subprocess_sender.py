@@ -55,14 +55,23 @@ class SubProcessWrapper(object):
 
 
 class RealsenseSender(SubProcessWrapper):
-    def __init__(self, realsense_dir="./"):
-        super().__init__()
+    def __init__(self, realsense_dir="./", protocol="jpeg"):
+        self._protocol = protocol
         self._realsense_dir = realsense_dir
         self._host = "0.0.0.0"
         self._port = 5000
+        super().__init__()
 
     def _compute_launch_command(self):
-        gst_launch_cmd = "videoconvert ! tee name=t ! queue ! jpegenc ! rtpgstpay ! "
+        gst_launch_cmd = ""
+        if self._protocol == "jpeg":
+            gst_launch_cmd = "videoconvert ! tee name=t ! queue ! jpegenc ! rtpgstpay ! "
+        elif self._protocol == "vp8":
+            gst_launch_cmd = "videoconvert ! tee name=t ! queue ! vp8enc ! rtpvp8pay ! "
+        elif self._protocol == "mp4":
+            gst_launch_cmd = "videoconvert ! tee name=t ! queue ! avenc_mpeg4 ! rtpmp4vpay ! "
+        elif self._protocol == "h264":
+            gst_launch_cmd = "videoconvert ! tee name=t ! queue ! x264enc tune=zerolatency ! rtph264pay ! "
         gst_launch_cmd += "udpsink host=" + self._host + " port=" + str(self._port) + " "
         gst_launch_cmd += "t. ! queue ! fpsdisplaysink"
         gst_launch_cmd = '"' + gst_launch_cmd + ' "'
