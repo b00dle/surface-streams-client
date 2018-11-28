@@ -1,7 +1,6 @@
 import requests
 from datetime import datetime
 import sys
-from pprint import pprint
 import gi
 gi.require_version("Gst", "1.0")
 gi.require_version("Gtk", "3.0")
@@ -16,25 +15,10 @@ METHOD = "filesrc"
 REALSENSE_DIR = "./"
 PROTOCOL = "jpeg"
 
+
 def create_timestamp():
     return datetime.now().strftime(("%Y-%m-%d %H:%M:%S"))
 
-def print_sender_stats():
-    global SENDER
-    data = SENDER.udp_sink.emit(
-        "get_stats",
-        SENDER.udp_sink.get_property("host"),
-        SENDER.udp_sink.get_property("port")
-    )
-    stats = {
-        data.nth_field_name(n) : data.get_value(data.nth_field_name(n))
-        for n in range(0, data.n_fields())
-    }
-    print("> udp sink stats:", stats)
-    #pprint(data.to_string())
-    # ('multiudpsink-stats, bytes-sent=(guint64)0, packets-sent=(guint64)0, '
-    #'connect-time=(guint64)1543242717444511000, disconnect-time=(guint64)0;')
-    GObject.timeout_add_seconds(1, print_sender_stats)
 
 def run_udp_pipeline(send_port, protocol="jpeg"):
     global SENDER, RECEIVER
@@ -125,32 +109,6 @@ def shutdown_realsense_pipeline():
     print("### Realsense process finished with code", SENDER.return_code)
 
 
-def test():
-    import subprocess
-    global REALSENSE_DIR
-    REALSENSE_DIR = "/home/companion/surface-streams/"
-    args = []
-    args.append(REALSENSE_DIR + "realsense")
-    args.append("!")
-    args.append("\"videoconvert ! tee name=t ! queue ! jpegenc ! rtpgstpay ! udpsink host=192.168.1.101 port=5001  t. ! queue ! autovideosink\"")
-    p = subprocess.Popen(args)
-    while True:
-        pass
-
-def test2():
-    import subprocess
-    global REALSENSE_DIR
-    REALSENSE_DIR = "/home/companion/surface-streams/"
-    args = []
-    args.append(REALSENSE_DIR + "realsense")
-    args.append("!")
-    args.append(
-        "\"videoconvert ! queue ! jpegenc ! rtpgstpay ! udpsink host=192.168.1.101 port=5001 \"")
-    p = subprocess.Popen(args)
-    while True:
-        pass
-
-
 def main():
     global SENDER, RECEIVER, MY_IP, SERVER_IP, METHOD, REALSENSE_DIR, PROTOCOL
 
@@ -198,7 +156,6 @@ def main():
         print("FAILURE")
         print("  > method '" + METHOD + "' not recognized.")
 
+
 if __name__ == "__main__":
-    #test()
-    #test2()
     main()

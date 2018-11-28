@@ -5,26 +5,35 @@ gi.require_version("Gtk", "3.0")
 gi.require_version("GstVideo", "1.0")
 from gi.repository import Gst, Gtk, GstVideo, GdkX11
 from streaming.gst_pipeline import GstPipeline
+import streaming
 from pprint import pprint
 
 class UdpVideoReceiver(GstPipeline):
     '''
     Implements a GST pipeline to receive jpeg encoded rtp-gst frames over udp,
     decode them, convert them to video and produce output into
-    an embedded gtksink window.
+    an embedded gtksink window. Can handle multiple stream encodings (jpeg, vp8, mp4, h264).
 
-    gst pipeline description:
+    (default) gst pipeline description:
     gst-launch-1.0 udpsrc port=5000 ! application/x-rtp, media=application ! queue !
         rtpgstdepay ! jpegdec ! videoconvert ! gtksink
     '''
 
     def __init__(self, protocol="jpeg"):
+        """
+        Constructor.
+        :param protocol: encoding of received stream. Choose 'jpeg', 'vp8', 'mp4' or 'h264'
+        """
         super().__init__("Udp-Video-Receiver")
         self._protocol = protocol
         self._init_ui()
         self._init_gst_pipe()
 
     def _init_ui(self):
+        """
+        Helper function for Constructor to init UI elements.
+        :return:
+        """
         self.window = Gtk.Window(Gtk.WindowType.TOPLEVEL)
         self.window.set_title("Udp Video Receiver")
         self.window.set_default_size(500, 400)
@@ -34,53 +43,58 @@ class UdpVideoReceiver(GstPipeline):
         self.window.show_all()
 
     def _init_gst_pipe(self):
+        """
+        Helper function for Constructor to init GStreamer pipeline.
+        :return:
+        """
         # create necessary elements
         self.udp_src = self.make_add_element("udpsrc", "udpsrc")
-        self.src_queue = self.make_add_element("queue", "src_queue")
+        src_queue = self.make_add_element("queue", "src_queue")
+        rtp_depay = None
+        decoder = None
         if self._protocol == "jpeg":
-            self.udp_src.set_property("caps", Gst.caps_from_string(
-                "application/x-rtp, media=(string)application, clock-rate=(int)90000, encoding-name=(string)X-GST, caps=(string)aW1hZ2UvanBlZywgc29mLW1hcmtlcj0oaW50KTAsIHdpZHRoPShpbnQpMTI4MCwgaGVpZ2h0PShpbnQpNzIwLCBwaXhlbC1hc3BlY3QtcmF0aW89KGZyYWN0aW9uKTEvMSwgZnJhbWVyYXRlPShmcmFjdGlvbikyNDAwMC8xMDAx, capsversion=(string)0, payload=(int)96, ssrc=(uint)2277765570, timestamp-offset=(uint)3095164038, seqnum-offset=(uint)16152"))
-            self.rtp_depay = self.make_add_element("rtpgstdepay", "rtp_depay")
-            self.decoder = self.make_add_element("jpegdec", "jpeg_decoder")
+            self.udp_src.set_property("caps", Gst.caps_from_string(streaming.JPEG_CAPS))
+            rtp_depay = self.make_add_element("rtpgstdepay", "rtp_depay")
+            decoder = self.make_add_element("jpegdec", "jpeg_decoder")
         elif self._protocol == "vp8":
-            self.udp_src.set_property("caps", Gst.caps_from_string(
-                "application/x-rtp, media=(string)video, clock-rate=(int)90000, encoding-name=(string)VP8-DRAFT-IETF-01, payload=(int)96, ssrc=(uint)2990747501, clock-base=(uint)275641083, seqnum-base=(uint)34810"))
-            self.rtp_depay = self.make_add_element("rtpvp8depay", "v8_depay")
-            self.decoder = self.make_add_element("vp8dec", "v8_decoder")
+            self.udp_src.set_property("caps", Gst.caps_from_string(streaming.VP8_CAPS))
+            rtp_depay = self.make_add_element("rtpvp8depay", "v8_depay")
+            decoder = self.make_add_element("vp8dec", "v8_decoder")
         elif self._protocol == "mp4":
-            self.udp_src.set_property("caps", Gst.caps_from_string(
-                "application/x-rtp, media=(string)video, clock-rate=(int)90000, encoding-name=(string)MP4V-ES, profile-level-id=(string)1, config=(string)000001b001000001b58913000001000000012000c48d8800cd3204709443000001b24c61766335362e312e30, payload=(int)96, ssrc=(uint)2873740600, timestamp-offset=(uint)391825150, seqnum-offset=(uint)2980"))
-            self.rtp_depay = self.make_add_element("rtpmp4vdepay", "mp4_depay")
-            self.decoder = self.make_add_element("avdec_mpeg4", "mp4_decoder")
+            self.udp_src.set_property("caps", Gst.caps_from_string(streaming.MP4_CAPS))
+            rtp_depay = self.make_add_element("rtpmp4vdepay", "mp4_depay")
+            decoder = self.make_add_element("avdec_mpeg4", "mp4_decoder")
         elif self._protocol == "h264":
-            self.udp_src.set_property("caps", Gst.caps_from_string(
-                "application/x-rtp, media=video, clock-rate=90000, encoding-name=H264, packetization-mode=1, profile-level-id=f40032, payload=96, ssrc=1577364544, timestamp-offset=1721384841, seqnum-offset=7366, a-framerate=25"))
-            self.rtp_depay = self.make_add_element("rtph264depay", "mp4_depay")
-            self.decoder = self.make_add_element("avdec_h264", "mp4_decoder")
-        self.videoconvert = self.make_add_element("videoconvert", "video_converter")
-        self.videosink = self.make_add_element("gtksink", "videosink")
-        self.vbox_layout.add(self.videosink.props.widget)
-        self.videosink.props.widget.show()
+            self.udp_src.set_property("caps", Gst.caps_from_string(streaming.H264_CAPS))
+            rtp_depay = self.make_add_element("rtph264depay", "mp4_depay")
+            decoder = self.make_add_element("avdec_h264", "mp4_decoder")
+        videoconvert = self.make_add_element("videoconvert", "video_converter")
+        videosink = self.make_add_element("gtksink", "videosink")
+        self.vbox_layout.add(videosink.props.widget)
+        videosink.props.widget.show()
         # link elements
-        self.link_elements(self.udp_src, self.src_queue)
-        self.link_elements(self.src_queue, self.rtp_depay)
-        self.link_elements(self.rtp_depay, self.decoder)
-        self.link_elements(self.decoder, self.videoconvert)
-        self.link_elements(self.videoconvert, self.videosink)
-
-    #def start(self, port):
-    #    self.udp_src.set_property("port", port)
-    #    self.pipeline.set_state(Gst.State.PLAYING)
+        self.link_elements(self.udp_src, src_queue)
+        self.link_elements(src_queue, rtp_depay)
+        self.link_elements(rtp_depay, decoder)
+        self.link_elements(decoder, videoconvert)
+        self.link_elements(videoconvert, videosink)
 
     def start(self, port):
+        """
+        Starts receiving stream data on given port.
+        :param port: port of the running systems udp socket.
+        :return:
+        """
         self.udp_src.set_property("port", port)
         self.pipeline.set_state(Gst.State.PLAYING)
 
-    def on_udp_bus_message(self, bus, message):
-        print("### on_udp_bus_message")
-        print("  > message.src", message.src.get_name())
-
     def on_bus_message(self, bus, message):
+        """
+        BC override
+        :param bus:
+        :param message:
+        :return:
+        """
         t = message.type
         if t == Gst.MessageType.STREAM_START:
             print("stream start")
@@ -105,146 +119,3 @@ class UdpVideoReceiver(GstPipeline):
             print(message.src.get_name() + " Warning: %s" % wrn, debug)
         else:
             print(t)
-
-
-class UdpVideoReceiverAlt(GstPipeline):
-    '''
-    Implements a GST pipeline to receive h263 encoded rtp-video frames over udp,
-    decode them, convert them to video and produce output into
-    an autovideosink window.
-
-    gst pipeline description:
-    gst-launch-1.0 udpsrc port=5000 ! application/x-rtp, media=video ! queue !
-        rtph263pdepay ! avdec_h263 ! autovideosink
-    '''
-
-    def __init__(self):
-        super().__init__("Udp-Video-Receiver")
-        self._init_ui()
-        self._init_gst_pipe()
-
-    def _init_ui(self):
-        self.window = Gtk.Window(Gtk.WindowType.TOPLEVEL)
-        self.window.set_title("Udp Video Receiver")
-        self.window.set_default_size(500, 400)
-        self.window.connect("destroy", Gtk.main_quit, "WM destroy")
-        self.vbox_layout = Gtk.VBox()
-        self.window.add(self.vbox_layout)
-        self.movie_window = Gtk.DrawingArea()
-        self.vbox_layout.add(self.movie_window)
-        self.window.show_all()
-
-    def _init_gst_pipe(self):
-        # create necessary elements
-        self.udp_src = self.make_add_element("udpsrc", "udpsrc")
-        self.udp_src.set_property("port", 5000)
-        self.udp_src.set_property("caps", Gst.caps_from_string("application/x-rtp, media=video"))
-        self.src_queue = self.make_add_element("queue", "src_queue")
-        self.rtp_depay = self.make_add_element("rtph263pdepay", "rtp_depay")
-        self.av_decoder = self.make_add_element("avdec_h263", "av_decoder")
-        self.videosink = self.make_add_element("autovideosink", "videosink")
-
-        self.link_elements(self.udp_src, self.src_queue)
-        self.link_elements(self.src_queue, self.rtp_depay)
-        self.link_elements(self.rtp_depay, self.av_decoder)
-        self.link_elements(self.av_decoder, self.videosink)
-
-        self.pipeline.set_state(Gst.State.PLAYING)
-
-    def on_bus_message(self, bus, message):
-        t = message.type
-        if t == Gst.MessageType.STREAM_START:
-            print("stream start")
-            self.pipeline.set_state(Gst.State.PLAYING)
-        elif t == Gst.MessageType.ERROR:
-            self.pipeline.set_state(Gst.State.NULL)
-            err, debug = message.parse_error()
-            print(message.src.get_name()+" Error: %s" % err, debug)
-        elif t == Gst.MessageType.STATE_CHANGED:
-            old_state, new_state, pending_state = message.parse_state_changed()
-            print(message.src.get_name()+" state changed from %s to %s." %
-                  (old_state.value_nick, new_state.value_nick))
-        elif t == Gst.MessageType.ELEMENT:
-            pass
-        else:
-            pass
-
-    def on_bus_sync_message(self, bus, message):
-        """ Sets x window ID once image sink is ready to prepare output. """
-        message_name = message.get_structure().get_name()
-        if message_name == "prepare-window-handle":
-            imagesink = message.src
-            imagesink.set_property("force-aspect-ratio", True)
-            imagesink.set_window_handle(self.movie_window.get_property("window").get_xid())
-
-
-class UdpVideoReceiverAlt2(GstPipeline):
-    '''
-    Implements a GST pipeline to receive jpeg encoded rtp-gst frames over udp,
-    decode them, convert them to video and produce output into
-    an autovideosink window.
-
-    gst pipeline description:
-    gst-launch-1.0 udpsrc port=5000 ! application/x-rtp, media=application ! queue !
-        rtpgstdepay ! jpegdec ! autovideosink
-    '''
-
-    # works, but doesn't put video frame into xwindow
-    def __init__(self):
-        super().__init__("Udp-Video-Receiver")
-        self._init_ui()
-        self._init_gst_pipe()
-
-    def _init_ui(self):
-        self.window = Gtk.Window(Gtk.WindowType.TOPLEVEL)
-        self.window.set_title("Udp Video Receiver")
-        self.window.set_default_size(500, 400)
-        self.window.connect("destroy", Gtk.main_quit, "WM destroy")
-        self.vbox_layout = Gtk.VBox()
-        self.window.add(self.vbox_layout)
-        self.movie_window = Gtk.DrawingArea()
-        self.vbox_layout.add(self.movie_window)
-        self.window.show_all()
-
-    def _init_gst_pipe(self):
-        # create necessary elements
-        self.udp_src = self.make_add_element("udpsrc", "udpsrc")
-        self.udp_src.set_property("port", 5000)
-        self.udp_src.set_property("caps", Gst.caps_from_string("application/x-rtp, media=application"))
-        self.src_queue = self.make_add_element("queue", "src_queue")
-        self.rtp_depay = self.make_add_element("rtpgstdepay", "rtp_depay")
-        self.jpeg_decoder = self.make_add_element("jpegdec", "jpeg_decoder")
-        self.videosink = self.make_add_element("autovideosink", "videosink")
-
-        self.link_elements(self.udp_src, self.src_queue)
-        self.link_elements(self.src_queue, self.rtp_depay)
-        self.link_elements(self.rtp_depay, self.jpeg_decoder)
-        self.link_elements(self.jpeg_decoder, self.videosink)
-
-        self.pipeline.set_state(Gst.State.PLAYING)
-
-    def on_bus_message(self, bus, message):
-        t = message.type
-        if t == Gst.MessageType.STREAM_START:
-            print("stream start")
-            self.pipeline.set_state(Gst.State.PLAYING)
-        elif t == Gst.MessageType.ERROR:
-            self.pipeline.set_state(Gst.State.NULL)
-            err, debug = message.parse_error()
-            print(message.src.get_name()+" Error: %s" % err, debug)
-        elif t == Gst.MessageType.STATE_CHANGED:
-            old_state, new_state, pending_state = message.parse_state_changed()
-            print(message.src.get_name()+" state changed from %s to %s." %
-                  (old_state.value_nick, new_state.value_nick))
-        elif t == Gst.MessageType.ELEMENT:
-            pass
-        else:
-            pass
-
-    def on_bus_sync_message(self, bus, message):
-        """ Sets x window ID once image sink is ready to prepare output. """
-        message_name = message.get_structure().get_name()
-        #if message_name == "prepare-window-handle":
-        #    imagesink = message.src
-        #    imagesink.set_property("force-aspect-ratio", True)
-        #    imagesink.set_window_handle(self.movie_window.get_property("window").get_xid())

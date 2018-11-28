@@ -9,7 +9,15 @@ from streaming.stats_monitor import UdpStatsMonitor
 
 
 class UdpVideoSender(GstPipeline):
+    """
+    Class encapsulating a filesrc based GStreamer pipeline streaming video data over udp.
+    """
+
     def __init__(self, protocol="jpeg"):
+        """
+        Constructor.
+        :param protocol: Choose 'jpeg', 'vp8', 'mp4' or 'h264' to configure encoding of stream
+        """
         super().__init__("Udp-Video-Sender")
         self._protocol = protocol
         self._init_ui()
@@ -18,9 +26,14 @@ class UdpVideoSender(GstPipeline):
         self.monitor.link(self.pipeline, "udp_sink")
 
     def cleanup(self):
+        """ Cleans up all instance refs. Should be called prior to __del__. """
         self.monitor.unlink()
 
     def _init_ui(self):
+        """
+        Constructor helper to create UI structure.
+        :return:
+        """
         self.window = Gtk.Window(Gtk.WindowType.TOPLEVEL)
         self.window.set_title("Udp Video Sender")
         self.window.set_default_size(500, 400)
@@ -34,85 +47,96 @@ class UdpVideoSender(GstPipeline):
         self.button = Gtk.Button("Start")
         hbox_layout.pack_start(self.button, False, False, 0)
         self.button.connect("clicked", self.start_stop)
-        #self.movie_window = Gtk.DrawingArea()
-        #self.vbox_layout.add(self.movie_window)
         self.window.show_all()
 
     def _init_gst_pipe(self):
+        """
+        Constructor helper to create GStreamer pipeline.
+        :return:
+        """
         # create necessary elements
         self.filesrc = self.make_add_element("filesrc", "filesrc")
-        self.decoder = self.make_add_element("decodebin", "decoder")
-        self.queue = self.make_add_element("queue", "decode_queue")
-        self.converter = self.make_add_element("videoconvert", "converter")
-        self.tee = self.make_add_element("tee", "tee")
+        decoder = self.make_add_element("decodebin", "decoder")
+        queue = self.make_add_element("queue", "decode_queue")
+        converter = self.make_add_element("videoconvert", "converter")
+        tee = self.make_add_element("tee", "tee")
         ## sending pipeline
-        self.udp_queue = self.make_add_element("queue", "udp_queue")
+        udp_queue = self.make_add_element("queue", "udp_queue")
+        encoder = None
+        rtp_packer = None
         if self._protocol == "jpeg":
-            self.encoder = self.make_add_element("jpegenc", "jpeg_encoder")
-            self.rtp_packer = self.make_add_element("rtpgstpay", "rtp_packer")
+            encoder = self.make_add_element("jpegenc", "jpeg_encoder")
+            rtp_packer = self.make_add_element("rtpgstpay", "rtp_packer")
         elif self._protocol == "vp8":
-            self.encoder = self.make_add_element("vp8enc", "vp8_encoder")
-            self.rtp_packer = self.make_add_element("rtpvp8pay", "rtp_packer")
+            encoder = self.make_add_element("vp8enc", "vp8_encoder")
+            rtp_packer = self.make_add_element("rtpvp8pay", "rtp_packer")
         elif self._protocol == "mp4":
-            self.encoder = self.make_add_element("avenc_mpeg4", "mp4_encoder")
-            self.rtp_packer = self.make_add_element("rtpmp4vpay", "rtp_packer")
-            self.rtp_packer.set_property("config-interval", 3)
+            encoder = self.make_add_element("avenc_mpeg4", "mp4_encoder")
+            rtp_packer = self.make_add_element("rtpmp4vpay", "rtp_packer")
+            rtp_packer.set_property("config-interval", 3)
         elif self._protocol == "h264":
-            self.encoder = self.make_add_element("x264enc", "h264_encoder")
-            self.encoder.set_property("tune", "zerolatency")
-            self.rtp_packer = self.make_add_element("rtph264pay", "rtp_packer")
+            encoder = self.make_add_element("x264enc", "h264_encoder")
+            encoder.set_property("tune", "zerolatency")
+            rtp_packer = self.make_add_element("rtph264pay", "rtp_packer")
         self.udp_sink = self.make_add_element("udpsink", "udp_sink")
-
         ## display pipeline
-        self.video_queue = self.make_add_element("queue", "video_queue")
-        self.converter2 = self.make_add_element("videoconvert", "converter2")
-        self.videosink = self.make_add_element("gtksink", "videosink")
-        self.vbox_layout.add(self.videosink.props.widget)
-        self.videosink.props.widget.show()
+        video_queue = self.make_add_element("queue", "video_queue")
+        converter2 = self.make_add_element("videoconvert", "converter2")
+        videosink = self.make_add_element("gtksink", "videosink")
+        self.vbox_layout.add(videosink.props.widget)
+        videosink.props.widget.show()
 
         # connect element signals
-        self.register_callback(self.decoder, "pad-added", self.decoder_pad_added)
+        self.register_callback(decoder, "pad-added", self._decoder_pad_added)
 
         # setup pipeline links
-        self.link_elements(self.filesrc, self.decoder)
-
+        self.link_elements(self.filesrc, decoder)
         # link queue to converter through to udp sink
         # note: queue will be dynamically linked once pad is added on decoder
         # (see self.decoder_pad_added)
-        self.link_elements(self.queue, self.converter)
-        self.link_elements(self.converter, self.tee)
+        self.link_elements(queue, converter)
+        self.link_elements(converter, tee)
         ## link end of sending pipeline
-        self.link_elements(self.udp_queue, self.encoder)
-        self.link_elements(self.encoder, self.rtp_packer)
-        self.link_elements(self.rtp_packer, self.udp_sink)
+        self.link_elements(udp_queue, encoder)
+        self.link_elements(encoder, rtp_packer)
+        self.link_elements(rtp_packer, self.udp_sink)
         ## link end of videosink pipeline
-        self.link_elements(self.video_queue, self.converter2)
-        self.link_elements(self.converter2, self.videosink)
-
+        self.link_elements(video_queue, converter2)
+        self.link_elements(converter2, videosink)
         # setup tee links
-        tee_src_pad_template = self.tee.get_pad_template("src_%u")
-        tee_udp_pad = self.tee.request_pad(tee_src_pad_template, None, None)
-        udp_queue_pad = self.udp_queue.get_static_pad("sink")
-        tee_video_pad = self.tee.request_pad(tee_src_pad_template, None, None)
-        video_queue_pad = self.video_queue.get_static_pad("sink")
+        tee_src_pad_template = tee.get_pad_template("src_%u")
+        tee_udp_pad = tee.request_pad(tee_src_pad_template, None, None)
+        udp_queue_pad = udp_queue.get_static_pad("sink")
+        tee_video_pad = tee.request_pad(tee_src_pad_template, None, None)
+        video_queue_pad = video_queue.get_static_pad("sink")
         self.link_elements(tee_udp_pad, udp_queue_pad)
         self.link_elements(tee_video_pad, video_queue_pad)
 
     def set_port(self, port):
+        """
+        Sets stream destination port
+        :param port: port of destination udp socket.
+        :return:
+        """
         self.udp_sink.set_property("port", port)
 
     def set_host(self, host):
+        """
+        Sets stream destination IP-address.
+        :param host: IP of destination udp socket.
+        :return:
+        """
         self.udp_sink.set_property("host", host)
 
     def on_bus_message(self, bus, message):
         """ Resets Start button based on playback/error state. """
         t = message.type
         if t == Gst.MessageType.EOS:
-            self._pipe_stop()
+            self._pipeline_stop()
         elif t == Gst.MessageType.ERROR:
             err, debug = message.parse_error()
             print("Error: %s" % err, debug)
-            self._pipe_stop()
+            self._pipeline_stop()
 
     def on_bus_sync_message(self, bus, message):
         pass
@@ -125,32 +149,49 @@ class UdpVideoSender(GstPipeline):
         '''
 
     def start_stop(self, w):
-        """ Toggles playback depending on current play state. """
+        """
+        Toggles filesrc playback depending on current play state.
+        :param w:
+        :return:
+        """
         if self.button.get_label() == "Start":
             filepath = self.entry.get_text().strip()
             if os.path.isfile(filepath):
                 filepath = os.path.realpath(filepath)
                 self.filesrc.set_property("location", filepath)
-                self._pipe_start()
+                self._pipeline_start()
             else:
                 print("given path is no file")
         else:
-            self._pipe_stop()
+            self._pipeline_stop()
 
-    def _pipe_stop(self):
+    def _pipeline_stop(self):
+        """
+        Helper function to trigger pipeline state change to NULL
+        and stop stats monitoring.
+        :return:
+        """
         self.pipeline.set_state(Gst.State.NULL)
         self.button.set_label("Start")
         self.monitor.stop()
 
-    def _pipe_start(self):
+    def _pipeline_start(self):
+        """
+        Helper function to trigger pipeline state change to PLAYING
+        and start stats monitoring.
+        :return:
+        """
         self.button.set_label("Stop")
         self.pipeline.set_state(Gst.State.PLAYING)
         self.monitor.start()
 
-    def decoder_pad_added(self, decoder, pad):
+    def _decoder_pad_added(self, decoder, pad):
         """
-        Link decoder src pad to queue sink pad
+        Callback function to link decoder src pad to queue sink pad
         once the decoder receives input from the filesrc.
+        :param decoder: GstElement triggering this callback
+        :param pad: pad of GstElement that was added.
+        :return:
         """
         template_property = pad.get_property("template")
         template_name = template_property.name_template

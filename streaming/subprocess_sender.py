@@ -55,7 +55,18 @@ class SubProcessWrapper(object):
 
 
 class RealsenseSender(SubProcessWrapper):
+    """
+    Class used to encapsulate execution of Realsense SurfaceStreams reconstruction
+    and streaming data over udp channel.
+    """
+
     def __init__(self, realsense_dir="./", protocol="jpeg"):
+        """
+        Constructor.
+        :param realsense_dir: directory where ./realsense executable can be found.
+        Program can be found and built at https://github.com/floe/surface-streams
+        :param protocol: encoding for udp stream. Choose 'jpeg', 'vp8', 'mp4' or 'h264'
+        """
         self._protocol = protocol
         self._realsense_dir = realsense_dir
         self._host = "0.0.0.0"
@@ -63,6 +74,11 @@ class RealsenseSender(SubProcessWrapper):
         super().__init__()
 
     def _compute_launch_command(self):
+        """
+        Creates the subprocess creation call for realsense executable.
+        Includes a GStreamer pipeline for streaming reconstruction over udp.
+        :return:
+        """
         gst_launch_cmd = ""
         if self._protocol == "jpeg":
             gst_launch_cmd = "videoconvert ! tee name=t ! queue ! jpegenc ! rtpgstpay ! "
