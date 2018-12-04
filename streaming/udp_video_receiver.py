@@ -66,8 +66,12 @@ class UdpVideoReceiver(GstPipeline):
             decoder = self.make_add_element("avdec_mpeg4", "mp4_decoder")
         elif self._protocol == "h264":
             self.udp_src.set_property("caps", Gst.caps_from_string(streaming.H264_CAPS))
-            rtp_depay = self.make_add_element("rtph264depay", "mp4_depay")
-            decoder = self.make_add_element("avdec_h264", "mp4_decoder")
+            rtp_depay = self.make_add_element("rtph264depay", "h264_depay")
+            decoder = self.make_add_element("avdec_h264", "h264_decoder")
+        elif self._protocol == "h265":
+            self.udp_src.set_property("caps", Gst.caps_from_string(streaming.H265_CAPS))
+            rtp_depay = self.make_add_element("rtph265depay", "h265_depay")
+            decoder = self.make_add_element("avdec_h264", "h265_decoder")
         videoconvert = self.make_add_element("videoconvert", "video_converter")
         videosink = self.make_add_element("gtksink", "videosink")
         self.vbox_layout.add(videosink.props.widget)

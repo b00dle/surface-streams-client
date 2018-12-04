@@ -35,9 +35,10 @@ class UdpStatsMonitor(object):
         if new_stats is None or not self._enabled:
             return
         bytes_per_second = new_stats["bytes-sent"] - self.stats["bytes-sent"]
-        print("> " + self._pipeline.get_name() + "." + self._element_name + " stats:", new_stats)
-        print("  > bytes/s:", bytes_per_second)
-        print("  > mbit/s:", (bytes_per_second * 8) / 1000000)
+        if bytes_per_second > 0:
+            print("> " + self._pipeline.get_name() + "." + self._element_name + " stats:", new_stats)
+            print("  > bytes/s:", bytes_per_second)
+            print("  > mbit/s:", (bytes_per_second * 8) / 1000000)
         self.stats = new_stats
         if self._enabled:
             GObject.timeout_add_seconds(1, self._update)

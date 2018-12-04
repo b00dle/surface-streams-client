@@ -40,3 +40,13 @@ H264_CAPS = "application/x-rtp, " \
             "timestamp-offset=1721384841, " \
             "seqnum-offset=7366, " \
             "a-framerate=25"
+
+H265_CAPS = "application/x-rtp, " \
+            "media=video, " \
+            "payload=96, " \
+            "clock-rate=90000, " \
+            "encoding-name=H265, " \
+            "ssrc=2828246746, " \
+            "timestamp-offset=1863230164, " \
+            "seqnum-offset=12204, " \
+            "a-framerate=23.976023976023978"

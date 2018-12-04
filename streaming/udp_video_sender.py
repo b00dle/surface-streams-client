@@ -43,6 +43,7 @@ class UdpVideoSender(GstPipeline):
         hbox_layout = Gtk.HBox()
         self.vbox_layout.pack_start(hbox_layout, False, False, 0)
         self.entry = Gtk.Entry()
+        self.entry.set_text("/home/basti/Documents/studium/master/green-sample.mp4")
         hbox_layout.add(self.entry)
         self.button = Gtk.Button("Start")
         hbox_layout.pack_start(self.button, False, False, 0)
@@ -57,7 +58,7 @@ class UdpVideoSender(GstPipeline):
         # create necessary elements
         self.filesrc = self.make_add_element("filesrc", "filesrc")
         decoder = self.make_add_element("decodebin", "decoder")
-        queue = self.make_add_element("queue", "decode_queue")
+        self.queue = self.make_add_element("queue", "decode_queue")
         converter = self.make_add_element("videoconvert", "converter")
         tee = self.make_add_element("tee", "tee")
         ## sending pipeline
@@ -78,6 +79,10 @@ class UdpVideoSender(GstPipeline):
             encoder = self.make_add_element("x264enc", "h264_encoder")
             encoder.set_property("tune", "zerolatency")
             rtp_packer = self.make_add_element("rtph264pay", "rtp_packer")
+        elif self._protocol == "h265":
+            encoder = self.make_add_element("x265enc", "h265_encoder")
+            encoder.set_property("tune", "zerolatency")
+            rtp_packer = self.make_add_element("rtph265pay", "rtp_packer")
         self.udp_sink = self.make_add_element("udpsink", "udp_sink")
         ## display pipeline
         video_queue = self.make_add_element("queue", "video_queue")
@@ -94,7 +99,7 @@ class UdpVideoSender(GstPipeline):
         # link queue to converter through to udp sink
         # note: queue will be dynamically linked once pad is added on decoder
         # (see self.decoder_pad_added)
-        self.link_elements(queue, converter)
+        self.link_elements(self.queue, converter)
         self.link_elements(converter, tee)
         ## link end of sending pipeline
         self.link_elements(udp_queue, encoder)
