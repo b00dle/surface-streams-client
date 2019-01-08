@@ -2,6 +2,7 @@ import requests
 from datetime import datetime
 import sys
 import gi
+import cv2
 gi.require_version("Gst", "1.0")
 gi.require_version("Gtk", "3.0")
 gi.require_version("GstVideo", "1.0")
@@ -157,14 +158,67 @@ def run_image_test():
         print("  > reason", r.reason)
 
 
+def run_opencv_client(send_port, protocol="jpeg"):
+    global SENDER, RECEIVER
+    from streaming.udp_video_sender import UdpVideoSender
+    from streaming.cv_video_receiver import CvReceiverSubProcess
+    GObject.threads_init()
+    Gst.init(None)
+    SENDER = UdpVideoSender(protocol=protocol)
+    SENDER.set_port(send_port)
+    SENDER.set_host(SERVER_IP)
+    # GObject.timeout_add_seconds(1, print_sender_stats)
+    # pprint(dir(GObject))
+    r = requests.post("http://" + SERVER_IP + ":5000/api/clients", data={}, json={
+        "in-ip": MY_IP,
+        "in-port": send_port,
+        "name": "python-client-" + create_timestamp(),
+        "out-port": -1,
+        "streaming-protocol": protocol
+    })
+    if r.status_code == 200:
+        if r.headers['content-type'] == "application/json":
+            data = r.json()
+            print("### SUCCESS\n  > data", data)
+            print("  > initializing receiver")
+            print("  > port", data["out-port"])
+            RECEIVER = (data["uuid"], CvReceiverSubProcess(port=data["out-port"], protocol=protocol))
+            RECEIVER[1].start()
+        else:
+            print("### API error\n > expecting response json")
+    else:
+        print("### HTTP error\n  > code", r.status_code)
+        print("  > reason", r.reason)
+
+    Gtk.main()
+
+
+def shutdown_cv_pipeline():
+    shutdown_udp_pipeline()
+    global RECEIVER
+    RECEIVER[1].stop()
+    print("### CvVideoCaptureSubProcess finished with code", RECEIVER[1].return_code)
+
+
+def run_cv_test():
+    print(cv2.getBuildInformation())
+    '''
+    from streaming.cv_video_receiver import CvVideoReceiver
+    cap = CvVideoReceiver(5002)
+    while cap.is_capturing():
+        cap.capture()
+    '''
+
+
 def main():
     global SENDER, RECEIVER, MY_IP, SERVER_IP, METHOD, REALSENSE_DIR, PROTOCOL
 
     #METHOD = "realsense"
     #METHOD = "filesrc"
-    METHOD = "imagetest"
+    #METHOD = "imagetest"
+    METHOD = "cvtest"
     REALSENSE_DIR = "/home/companion/surface-streams/"
-    PROTOCOL = "vp9"
+    PROTOCOL = "jpeg"
 
     if len(sys.argv) > 1:
         arg_i = 1
@@ -203,6 +257,9 @@ def main():
         shutdown_udp_pipeline()
     elif METHOD == "imagetest":
         run_image_test()
+    elif METHOD == "cvtest":
+        run_opencv_client(5002, PROTOCOL)
+        shutdown_cv_pipeline()
     else:
         print("FAILURE")
         print("  > method '" + METHOD + "' not recognized.")
