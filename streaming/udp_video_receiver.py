@@ -60,6 +60,10 @@ class UdpVideoReceiver(GstPipeline):
             self.udp_src.set_property("caps", Gst.caps_from_string(streaming.VP8_CAPS))
             rtp_depay = self.make_add_element("rtpvp8depay", "v8_depay")
             decoder = self.make_add_element("vp8dec", "v8_decoder")
+        elif self._protocol == "vp9":
+            self.udp_src.set_property("caps", Gst.caps_from_string(streaming.VP9_CAPS))
+            rtp_depay = self.make_add_element("rtpvp9depay", "v9_depay")
+            decoder = self.make_add_element("vp9dec", "v9_decoder")
         elif self._protocol == "mp4":
             self.udp_src.set_property("caps", Gst.caps_from_string(streaming.MP4_CAPS))
             rtp_depay = self.make_add_element("rtpmp4vdepay", "mp4_depay")

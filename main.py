@@ -73,7 +73,7 @@ def run_realsense_pipeline(send_port, realsense_dir, protocol="jpeg"):
     from streaming.udp_video_receiver import UdpVideoReceiver
     GObject.threads_init()
     Gst.init(None)
-    SENDER = RealsenseSender(realsense_dir=realsense_dir,protocol=protocol)
+    SENDER = RealsenseSender(realsense_dir=realsense_dir, protocol=protocol)
     SENDER.set_port(send_port)
     SENDER.set_host(SERVER_IP)
     SENDER.start()
@@ -109,13 +109,62 @@ def shutdown_realsense_pipeline():
     print("### Realsense process finished with code", SENDER.return_code)
 
 
+def run_image_test():
+    r = requests.post(
+        "http://" + SERVER_IP + ":5000/api/images",
+        data={},
+        json={"name": "test.png"}
+    )
+    if r.status_code == 200:
+        if r.headers['content-type'] == "application/json":
+            data = r.json()
+            uuid = data["uuid"]
+            print("### SUCCESS\n  > data", data)
+            print("  > got image uuid:", uuid)
+            print("  > attempting to fill")
+            r = requests.put(
+                "http://" + SERVER_IP + ":5000/api/images/"+uuid,
+                files={'data': open('CLIENT_DATA/test.png', 'rb')}
+            )
+            if r.status_code == 200:
+                print("### SUCCESS")
+                print("  > image uploaded")
+                r = requests.get(
+                    "http://" + SERVER_IP + ":5000/api/images/"+uuid,
+                    stream=True
+                )
+                if r.status_code == 200:
+                    content_type = r.headers["content-type"].split("/")
+                    if len(content_type) != 2 or content_type[0] != "image":
+                        print("### FAILURE\n  > return type is no image")
+                    else:
+                        print("### SUCCESS")
+                        print("  > got image from server")
+                        print("  > headers", r.headers["content-type"])
+                        with open('CLIENT_DATA/test-from-server.'+content_type[1], 'wb') as img_file:
+                            for chunk in r.iter_content(1024):
+                                img_file.write(chunk)
+                else:
+                    print("### HTTP error\n  > code", r.status_code)
+                    print("  > reason", r.reason)
+            else:
+                print("### HTTP error\n  > code", r.status_code)
+                print("  > reason", r.reason)
+        else:
+            print("### API error\n > expecting response json")
+    else:
+        print("### HTTP error\n  > code", r.status_code)
+        print("  > reason", r.reason)
+
+
 def main():
     global SENDER, RECEIVER, MY_IP, SERVER_IP, METHOD, REALSENSE_DIR, PROTOCOL
 
     #METHOD = "realsense"
-    METHOD = "filesrc"
+    #METHOD = "filesrc"
+    METHOD = "imagetest"
     REALSENSE_DIR = "/home/companion/surface-streams/"
-    PROTOCOL = "h265"
+    PROTOCOL = "vp9"
 
     if len(sys.argv) > 1:
         arg_i = 1
@@ -152,6 +201,8 @@ def main():
         run_udp_pipeline(5002, PROTOCOL)
         # run_udp_pipeline(5003)
         shutdown_udp_pipeline()
+    elif METHOD == "imagetest":
+        run_image_test()
     else:
         print("FAILURE")
         print("  > method '" + METHOD + "' not recognized.")

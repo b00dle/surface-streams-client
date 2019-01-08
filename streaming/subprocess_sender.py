@@ -84,10 +84,14 @@ class RealsenseSender(SubProcessWrapper):
             gst_launch_cmd = "videoconvert ! tee name=t ! queue ! jpegenc ! rtpgstpay ! "
         elif self._protocol == "vp8":
             gst_launch_cmd = "videoconvert ! tee name=t ! queue ! vp8enc ! rtpvp8pay ! "
+        elif self._protocol == "vp9":
+            gst_launch_cmd = "videoconvert ! tee name=t ! queue ! vp9enc ! rtpvp9pay ! "
         elif self._protocol == "mp4":
             gst_launch_cmd = "videoconvert ! tee name=t ! queue ! avenc_mpeg4 ! rtpmp4vpay ! "
         elif self._protocol == "h264":
             gst_launch_cmd = "videoconvert ! tee name=t ! queue ! x264enc tune=zerolatency ! rtph264pay ! "
+        elif self._protocol == "h265":
+            gst_launch_cmd = "videoconvert ! tee name=t ! queue ! x265enc tune=zerolatency ! rtph265pay ! "
         gst_launch_cmd += "udpsink host=" + self._host + " port=" + str(self._port) + " "
         gst_launch_cmd += "t. ! queue ! fpsdisplaysink"
         gst_launch_cmd = '"' + gst_launch_cmd + ' "'

@@ -70,7 +70,11 @@ class UdpVideoSender(GstPipeline):
             rtp_packer = self.make_add_element("rtpgstpay", "rtp_packer")
         elif self._protocol == "vp8":
             encoder = self.make_add_element("vp8enc", "vp8_encoder")
+            #encoder.set_property("target-bitrate", 4096*1000)
             rtp_packer = self.make_add_element("rtpvp8pay", "rtp_packer")
+        elif self._protocol == "vp9":
+            encoder = self.make_add_element("vp9enc", "vp9_encoder")
+            rtp_packer = self.make_add_element("rtpvp9pay", "rtp_packer")
         elif self._protocol == "mp4":
             encoder = self.make_add_element("avenc_mpeg4", "mp4_encoder")
             rtp_packer = self.make_add_element("rtpmp4vpay", "rtp_packer")
@@ -78,10 +82,14 @@ class UdpVideoSender(GstPipeline):
         elif self._protocol == "h264":
             encoder = self.make_add_element("x264enc", "h264_encoder")
             encoder.set_property("tune", "zerolatency")
+            encoder.set_property("speed-preset", 4)  # 1 fast but low encoding to 2 slow but high encoding
+            encoder.set_property("pass", 5)
+            encoder.set_property("quantizer", 22)
             rtp_packer = self.make_add_element("rtph264pay", "rtp_packer")
         elif self._protocol == "h265":
             encoder = self.make_add_element("x265enc", "h265_encoder")
             encoder.set_property("tune", "zerolatency")
+            encoder.set_property("log-level", "full")
             rtp_packer = self.make_add_element("rtph265pay", "rtp_packer")
         self.udp_sink = self.make_add_element("udpsink", "udp_sink")
         ## display pipeline
