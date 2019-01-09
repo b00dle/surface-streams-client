@@ -1,3 +1,5 @@
+from idlelib import run
+
 import requests
 from datetime import datetime
 import sys
@@ -201,14 +203,11 @@ def shutdown_cv_pipeline():
 
 
 def run_cv_test():
-    print(cv2.getBuildInformation())
-    '''
+    #print(cv2.getBuildInformation())
     from streaming.cv_video_receiver import CvVideoReceiver
     cap = CvVideoReceiver(5002)
     while cap.is_capturing():
         cap.capture()
-    '''
-
 
 def main():
     global SENDER, RECEIVER, MY_IP, SERVER_IP, METHOD, REALSENSE_DIR, PROTOCOL
@@ -258,7 +257,8 @@ def main():
     elif METHOD == "imagetest":
         run_image_test()
     elif METHOD == "cvtest":
-        run_opencv_client(5002, PROTOCOL)
+        #run_opencv_client(5001, PROTOCOL)
+        run_opencv_client(5003, PROTOCOL)
         shutdown_cv_pipeline()
     else:
         print("FAILURE")

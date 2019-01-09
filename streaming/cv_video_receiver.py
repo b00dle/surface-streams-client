@@ -39,29 +39,26 @@ class CvVideoReceiver:
             self._pipeline_description += "rtph265depay ! "
             self._pipeline_description += "avdec_h264 ! "
         self._pipeline_description += "videoconvert ! appsink"
-        self._pipeline_description = "v4l2src ! video/x-raw,format=BGR,width=640,height=480,framerate=30/1 ! appsink"
         self._capture = cv2.VideoCapture(self._pipeline_description)
 
     def capture(self):
+        """ returns the currently captured frame or None if not capturing. """
         if not self._capture.isOpened():
             print("CvVideoReceiver\n  > Cannot capture from description")
             print(self._pipeline_description)
-            return
+            return None
 
         if self._capture_finished:
             print("CvVideoReceiver\n  > capture finished.")
-            return
+            return None
 
         ret, frame = self._capture.read()
 
         if ret == False:
             self._capture_finished = True
-            return
+            return None
 
-        cv2.imshow("CvVideoreceiver", frame)
-
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            self._capture_finished = True
+        return frame
 
     def is_capturing(self):
         return not self._capture_finished
@@ -114,4 +111,10 @@ if __name__ == "__main__":
     cap = CvVideoReceiver(port=PORT, protocol=PROTOCOL)
 
     while cap.is_capturing():
-        cap.capture()
+        frame = cap.capture()
+
+        cv2.imshow("CvVideoreceiver", frame)
+
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
