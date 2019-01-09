@@ -96,6 +96,8 @@ if __name__ == "__main__":
     PORT = 5002
     PROTOCOL = "jpeg"
 
+    test_img = "/home/basti/Documents/studium/master/surface-streams-client/CLIENT_DATA/circle.png"
+
     if len(sys.argv) > 1:
         arg_i = 1
         while arg_i < len(sys.argv):
@@ -108,10 +110,23 @@ if __name__ == "__main__":
                 PROTOCOL = sys.argv[arg_i]
             arg_i += 1
 
+    # test overlay image
+    s_img = cv2.imread(test_img, -1)
+    x_offset = 50
+    y_offset = 50
+    y1, y2 = y_offset, y_offset + s_img.shape[0]
+    x1, x2 = x_offset, x_offset + s_img.shape[1]
+    alpha_s = s_img[:, :, 3]/255.0
+    alpha_l = 1.0 - alpha_s
+
     cap = CvVideoReceiver(port=PORT, protocol=PROTOCOL)
 
     while cap.is_capturing():
         frame = cap.capture()
+
+        for c in range(0, 3):
+            frame[y1:y2, x1:x2, c] = (alpha_s * s_img[:, :, c] +
+                                      alpha_l * frame[y1:y2, x1:x2, c])
 
         cv2.imshow("CvVideoreceiver", frame)
 
