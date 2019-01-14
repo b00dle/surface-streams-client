@@ -209,6 +209,34 @@ def run_cv_test():
     while cap.is_capturing():
         cap.capture()
 
+
+def run_asynchoro_test():
+    import socket, asyncoro, time, random
+
+    def server_proc(n, sock, coro=None):
+        for i in range(n):
+            msg, addr = yield sock.recvfrom(1024)
+            print('Received "%s" from %s:%s' % (msg, addr[0], addr[1]))
+        sock.close()
+
+    def client_proc(host, port, coro=None):
+        sock = asyncoro.AsynCoroSocket(socket.socket(socket.AF_INET, socket.SOCK_DGRAM))
+        msg = 'client socket: %s' % (sock.fileno())
+        print(msg)
+        time.sleep(random.randint(1,10))
+        yield sock.sendto(msg.encode("utf-8"), (host, port))
+        sock.close()
+
+    sock = asyncoro.AsynCoroSocket(socket.socket(socket.AF_INET, socket.SOCK_DGRAM))
+    sock.bind(('127.0.0.1', 0))
+    host, port = sock.getsockname()
+
+    n = 100
+    server_coro = asyncoro.Coro(server_proc, n, sock)
+    for i in range(n):
+        asyncoro.Coro(client_proc, host, port)
+
+
 def main():
     global SENDER, RECEIVER, MY_IP, SERVER_IP, METHOD, REALSENSE_DIR, PROTOCOL
 
@@ -265,5 +293,11 @@ def main():
         print("  > method '" + METHOD + "' not recognized.")
 
 
+def run_tracking_test():
+    from tracking import template_matching
+    template_matching.run()
+
+
 if __name__ == "__main__":
-    main()
+    run_tracking_test()
+    #main()
