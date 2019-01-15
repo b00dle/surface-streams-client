@@ -293,22 +293,31 @@ def main():
         print("  > method '" + METHOD + "' not recognized.")
 
 
-def run_tracking_test(mode="img"):
+def run_tracking_test(mode="img-match"):
     from tracking import template_matching
-    if mode == "img":
+    if mode == "img-match":
         template_matching.test_match_img(
             pattern_path='CLIENT_DATA/swamp2-128w.png',
             frame_path='CLIENT_DATA/find-cards-480w.png'
         )
-    elif mode == "video":
+    elif mode == "video-match":
         template_matching.test_match_video(
             pattern_path='CLIENT_DATA/noble-128w.png',
             video_path='CLIENT_DATA/track.mp4'
         )
+    elif mode == "video-list-match":
+        template_matching.test_list_match_video(
+            pattern_paths=[
+                'CLIENT_DATA/noble-128w.png',
+                'CLIENT_DATA/swamp1-128w.png',
+                'CLIENT_DATA/swamp2-128w.png'
+            ],
+            video_path='CLIENT_DATA/track.mp4'
+        )
     else:
-        print("FAILURE: mode should be 'img' or 'video'")
+        print("FAILURE: mode should be 'img-match', 'video-match' or 'video-list-match'")
 
 
 if __name__ == "__main__":
-    run_tracking_test("video")
+    run_tracking_test("video-list-match")
     #main()

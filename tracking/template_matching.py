@@ -89,7 +89,7 @@ def test_match_video(pattern_path, video_path):
     # setup video capture
     cap = cv.VideoCapture(
         "filesrc location=\"" + video_path + "\" ! decodebin ! videoconvert ! "
-        "videoscale ! video/x-raw, width=720,pixel-aspect-ratio=1/1 ! appsink"
+        "videoscale ! video/x-raw, width=640, pixel-aspect-ratio=1/1 ! appsink"
     )
 
     if not cap.isOpened():
@@ -112,7 +112,7 @@ def test_match_video(pattern_path, video_path):
                 good.append(m)
 
         matchesMask = None
-        if len(good) > MIN_MATCH_COUNT:
+        if len(good) >= MIN_MATCH_COUNT:
             src_pts = np.float32([kp1[m.queryIdx].pt for m in good]).reshape(-1, 1, 2)
             dst_pts = np.float32([kp2[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
 
@@ -127,6 +127,7 @@ def test_match_video(pattern_path, video_path):
             print("Not enough matches are found - {}/{}".format(len(good), MIN_MATCH_COUNT))
             matchesMask = None
 
+        '''
         if matchesMask is not None:
             draw_params = dict(matchColor=(0, 255, 0),  # draw matches in green color
                                singlePointColor=None,
@@ -134,6 +135,91 @@ def test_match_video(pattern_path, video_path):
                                flags=2)
             matching_summary = cv.drawMatches(img1, kp1, frame, kp2, good, None, **draw_params)
             cv.imshow("CVtest", matching_summary)
+        '''
+
+        cv.imshow("CVtest", frame)
+
+        if cv.waitKey(1) & 0xFF == ord('q'):
+            break
+
+
+def test_list_match_video(pattern_paths, video_path):
+    MIN_MATCH_COUNT = 10
+    FLANN_INDEX_KDTREE = 1
+
+    index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
+    search_params = dict(checks=50)
+    flann = cv.FlannBasedMatcher(index_params, search_params)
+    # Initiate SIFT detector
+    sift = cv.xfeatures2d.SIFT_create()
+
+    images = [cv.imread(path, 0) for path in pattern_paths]
+
+    sift_results = [
+        sift.detectAndCompute(img, None)
+        for img in images
+    ] # [0] = kp, [1] = des
+
+    # setup video capture
+    cap = cv.VideoCapture(
+        "filesrc location=\"" + video_path + "\" ! decodebin ! videoconvert ! "
+        "videoscale ! video/x-raw, width=480, pixel-aspect-ratio=1/1 ! appsink"
+    )
+
+    if not cap.isOpened():
+        print("Cannot capture test src. Exiting.")
+        quit()
+
+
+    start_time = time.time()
+    since_print = 0.0
+
+    fps_collection = []
+    while True:
+
+        start_time = time.time()
+
+        ret, frame = cap.read()
+        if ret == False:
+            break
+
+        kp2, des2 = sift.detectAndCompute(frame, None)
+
+        for i in range(0, len(images)):
+            kp1, des1 = sift_results[i]
+            matches = flann.knnMatch(des1, des2, k=2)
+
+            # store all the good matches as per Lowe's ratio test.
+            good = []
+            for m, n in matches:
+                if m.distance < 0.7 * n.distance:
+                    good.append(m)
+
+            matchesMask = None
+            if len(good) >= MIN_MATCH_COUNT:
+                src_pts = np.float32([kp1[m.queryIdx].pt for m in good]).reshape(-1, 1, 2)
+                dst_pts = np.float32([kp2[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
+
+                M, mask = cv.findHomography(src_pts, dst_pts, cv.RANSAC, 5.0)
+                matchesMask = mask.ravel().tolist()
+                h, w = images[i].shape
+                pts = np.float32([[0, 0], [0, h - 1], [w - 1, h - 1], [w - 1, 0]]).reshape(-1, 1, 2)
+                dst = cv.perspectiveTransform(pts, M)
+                frame = cv.polylines(frame, [np.int32(dst)], True, 255, 3, cv.LINE_AA)
+
+            else:
+                #print("Not enough matches are found - {}/{}".format(len(good), MIN_MATCH_COUNT))
+                matchesMask = None
+
+        cv.imshow("CVtest", frame)
+
+        elapsed_time = time.time()-start_time
+        fps_collection.append(1.0/elapsed_time)
+        since_print += elapsed_time
+        if since_print > 1.0:
+            print("avg fps:", int(sum(fps_collection)/float(len(fps_collection))))
+            fps_collection = []
+            since_print = 0.0
 
         if cv.waitKey(1) & 0xFF == ord('q'):
             break
