@@ -1,5 +1,4 @@
-from idlelib import run
-
+'''
 import requests
 from datetime import datetime
 import sys
@@ -9,6 +8,7 @@ gi.require_version("Gst", "1.0")
 gi.require_version("Gtk", "3.0")
 gi.require_version("GstVideo", "1.0")
 from gi.repository import Gst, GObject, Gtk, Gdk, GdkX11
+'''
 
 SENDER = None
 RECEIVER = None
@@ -293,11 +293,22 @@ def main():
         print("  > method '" + METHOD + "' not recognized.")
 
 
-def run_tracking_test():
+def run_tracking_test(mode="img"):
     from tracking import template_matching
-    template_matching.run()
+    if mode == "img":
+        template_matching.test_match_img(
+            pattern_path='CLIENT_DATA/swamp2-128w.png',
+            frame_path='CLIENT_DATA/find-cards-480w.png'
+        )
+    elif mode == "video":
+        template_matching.test_match_video(
+            pattern_path='CLIENT_DATA/noble-128w.png',
+            video_path='CLIENT_DATA/track.mp4'
+        )
+    else:
+        print("FAILURE: mode should be 'img' or 'video'")
 
 
 if __name__ == "__main__":
-    run_tracking_test()
+    run_tracking_test("video")
     #main()
