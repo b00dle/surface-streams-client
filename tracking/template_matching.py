@@ -4,6 +4,117 @@ from matplotlib import pyplot as plt
 import time
 from pprint import pprint
 
+
+class SiftPattern(object):
+    def __init__(self, pattern_id, cv_sift=None):
+        self._id = pattern_id
+        self._img = None
+        self._key_points = None
+        self._descriptors = None
+        self._sift = cv_sift
+
+    def get_id(self):
+        return self._id
+
+    def get_image(self):
+        return self._img
+
+    def get_key_points(self):
+        return self._key_points
+
+    def get_descriptors(self):
+        return self._descriptors
+
+    def get_shape(self):
+        if self.is_empty():
+            return None
+        return self._img.shape
+
+    def get_shape_points(self):
+        if self.is_empty():
+            return None
+        h, w = self._img.shape
+        return np.float32([[0, 0], [0, h - 1], [w - 1, h - 1], [w - 1, 0]]).reshape(-1, 1, 2)
+
+    def load_image(self, file_path):
+        self._img = cv.imread(file_path, 0)
+        self._detect_and_compute()
+
+    def set_image(self, img):
+        self._img = img
+        self._detect_and_compute()
+
+    def is_empty(self):
+        return self._img is None
+
+    def _detect_and_compute(self):
+        if self.is_empty():
+            return
+        if self._sift is None:
+            self._sift = cv.xfeatures2d.SIFT_create()
+        self._key_points, self._descriptors = self._sift.detectAndCompute(self._img, None)
+
+
+class FlannMatcher(object):
+    FLANN_INDEX_KDTREE = 1
+
+    def __init__(self, cv_flann=None):
+        self._flann = None
+        self._index_params = None
+        self._search_params = None
+        if cv_flann is not None:
+            self._flann = cv_flann
+        else:
+            self._index_params = dict(algorithm=self.FLANN_INDEX_KDTREE, trees=5)
+            self._search_params = dict(checks=50)
+            self._flann = cv.FlannBasedMatcher(self._index_params, self._search_params)
+
+    def knn_match(self, pattern, frame):
+        """ Returns a list of matched good feature points between pattern and frame.
+            Both input parameters are expected to be of type SiftPattern. """
+        if pattern.is_empty() or frame.is_empty():
+            raise ValueError("pattern and frame cannot be empty.")
+        matches = self._flann.knnMatch(
+            pattern.get_descriptors(),
+            frame.get_descriptors(),
+            k=2
+        )
+        # store all the good matches as per Lowe's ratio test.
+        good = []
+        for m, n in matches:
+            if m.distance < 0.7 * n.distance:
+                good.append(m)
+        return good
+
+    def find_homography(self, pattern, frame, good=None):
+        """ Returns the Homography to transform points from pattern, to frame.
+            Good is a list of matched points retrieved from knn_match.
+            If good is empty, knn_match will be called automatically.
+            Returns homography M and mask, as per cv2.findHomography(...). """
+        if len(good) == 0:
+            good = self.knn_match(pattern, frame)
+        if pattern.is_empty() or frame.is_empty():
+            raise ValueError("pattern and frame cannot be empty.")
+        kp1 = pattern.get_key_points()
+        kp2 = frame.get_key_points()
+        src_pts = np.float32([kp1[m.queryIdx].pt for m in good]).reshape(-1, 1, 2)
+        dst_pts = np.float32([kp2[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
+        return cv.findHomography(src_pts, dst_pts, cv.RANSAC, 5.0)
+
+
+def overlay(img_base, img_overlay):
+    x_offset = 50
+    y_offset = 50
+    y1, y2 = y_offset, y_offset + img_overlay.shape[0]
+    x1, x2 = x_offset, x_offset + img_overlay.shape[1]
+    alpha_s = img_overlay[:, :, 3] / 255.0
+    alpha_l = 1.0 - alpha_s
+    for c in range(0, 3):
+        img_base[y1:y2, x1:x2, c] = (alpha_s * img_overlay[:, :, c] +
+                                  alpha_l * img_base[y1:y2, x1:x2, c])
+    return img_base
+
+
 def test_match_img(pattern_path, frame_path):
     MIN_MATCH_COUNT = 10
     img1 = cv.imread(pattern_path, 0)
@@ -145,26 +256,24 @@ def test_match_video(pattern_path, video_path):
 
 def test_list_match_video(pattern_paths, video_path):
     MIN_MATCH_COUNT = 10
-    FLANN_INDEX_KDTREE = 1
+    SIFT = cv.xfeatures2d.SIFT_create()
 
-    index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
-    search_params = dict(checks=50)
-    flann = cv.FlannBasedMatcher(index_params, search_params)
-    # Initiate SIFT detector
-    sift = cv.xfeatures2d.SIFT_create()
+    flann = FlannMatcher()
 
-    images = [cv.imread(path, 0) for path in pattern_paths]
-
-    sift_results = [
-        sift.detectAndCompute(img, None)
-        for img in images
-    ] # [0] = kp, [1] = des
+    # Init SIFT patterns
+    patterns = []
+    for path in pattern_paths:
+        patterns.append(SiftPattern(path.split("/")[-1], SIFT))
+        # load and compute descriptors only once
+        patterns[-1].load_image(path)
 
     # setup video capture
     cap = cv.VideoCapture(
         "filesrc location=\"" + video_path + "\" ! decodebin ! videoconvert ! "
-        "videoscale ! video/x-raw, width=480, pixel-aspect-ratio=1/1 ! appsink"
+                                             "videoscale ! video/x-raw, width=480, pixel-aspect-ratio=1/1 ! appsink"
     )
+    # this sift pattern will hold and evaluate our video frames
+    frame_pattern = SiftPattern("VideoFrame", SIFT)
 
     if not cap.isOpened():
         print("Cannot capture test src. Exiting.")
@@ -183,33 +292,28 @@ def test_list_match_video(pattern_paths, video_path):
         if ret == False:
             break
 
-        kp2, des2 = sift.detectAndCompute(frame, None)
+        frame_pattern.set_image(frame)
 
-        for i in range(0, len(images)):
-            kp1, des1 = sift_results[i]
-            matches = flann.knnMatch(des1, des2, k=2)
-
-            # store all the good matches as per Lowe's ratio test.
-            good = []
-            for m, n in matches:
-                if m.distance < 0.7 * n.distance:
-                    good.append(m)
+        i = 0
+        for pattern in patterns:
+            good = flann.knn_match(pattern, frame_pattern)
 
             matchesMask = None
             if len(good) >= MIN_MATCH_COUNT:
-                src_pts = np.float32([kp1[m.queryIdx].pt for m in good]).reshape(-1, 1, 2)
-                dst_pts = np.float32([kp2[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
-
-                M, mask = cv.findHomography(src_pts, dst_pts, cv.RANSAC, 5.0)
+                M, mask = flann.find_homography(pattern, frame_pattern, good)
                 matchesMask = mask.ravel().tolist()
-                h, w = images[i].shape
-                pts = np.float32([[0, 0], [0, h - 1], [w - 1, h - 1], [w - 1, 0]]).reshape(-1, 1, 2)
+                pts = pattern.get_shape_points()
                 dst = cv.perspectiveTransform(pts, M)
                 frame = cv.polylines(frame, [np.int32(dst)], True, 255, 3, cv.LINE_AA)
-
+                if i == 0:
+                    img = pattern.get_image().copy()
+                    w, h, c = frame.shape
+                    img = cv.warpPerspective(pattern.get_image(), M, (h, w))
+                    cv.imshow("warped", img)
             else:
                 #print("Not enough matches are found - {}/{}".format(len(good), MIN_MATCH_COUNT))
                 matchesMask = None
+            i += 1
 
         cv.imshow("CVtest", frame)
 
