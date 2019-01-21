@@ -319,6 +319,18 @@ def run_tracking_test(mode="img-match"):
         print("FAILURE: mode should be 'img-match', 'video-match' or 'video-list-match'")
 
 
+def run_osc_client():
+    from streaming import osc_sender
+    osc_sender.run()
+
+
+def run_osc_server():
+    from streaming import osc_receiver
+    osc_receiver.run()
+
+
 if __name__ == "__main__":
-    run_tracking_test("video-list-match")
+    #run_osc_server()
+    run_osc_client()
+    #run_tracking_test("video-list-match")
     #main()
