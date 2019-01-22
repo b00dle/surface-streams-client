@@ -321,16 +321,16 @@ def run_tracking_test(mode="img-match"):
 
 def run_osc_client():
     from streaming import osc_sender
-    osc_sender.run()
+    osc_sender.run_pattern_sender()
 
 
 def run_osc_server():
     from streaming import osc_receiver
-    osc_receiver.run()
+    osc_receiver.run_pattern_receiver()
 
 
 if __name__ == "__main__":
-    #run_osc_server()
-    run_osc_client()
+    run_osc_server()
+    #run_osc_client()
     #run_tracking_test("video-list-match")
     #main()
