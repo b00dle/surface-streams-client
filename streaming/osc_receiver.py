@@ -5,7 +5,7 @@ from pythonosc import dispatcher
 from pythonosc import osc_server
 import multiprocessing
 
-from streaming.cv_pattern import CvPattern, CvPatternBnd, CvPatternSym
+from streaming.osc_pattern import OscPattern, OscPatternBnd, OscPatternSym
 
 
 class OscReceiver(object):
@@ -24,14 +24,14 @@ class OscReceiver(object):
 
 def bnd_handler(path, fixed_args, s_id, x_pos, y_pos, angle, width, height):
     msg_queue = fixed_args[0]
-    msg_queue.put({"s_id": s_id, "bnd": CvPatternBnd(x_pos, y_pos, angle, width, height)})
+    msg_queue.put({"s_id": s_id, "bnd": OscPatternBnd(x_pos, y_pos, angle, width, height)})
 
 
 def sym_handler(path, fixed_args, s_id, tu_id, c_id, sym_type, sym_value):
     if sym_type != "uuid":
         raise ValueError("FAILURE: sym_type must be 'uuid'\n  > got:", sym_type)
     msg_queue = fixed_args[0]
-    msg_queue.put({"s_id": s_id, "sym": CvPatternSym(sym_value, tu_id, c_id)})
+    msg_queue.put({"s_id": s_id, "sym": OscPatternSym(sym_value, tu_id, c_id)})
 
 
 class CvPatternDispatcher(dispatcher.Dispatcher):
@@ -65,7 +65,7 @@ class CvPatternReceiver(OscReceiver):
             bnd_msg = self._dispatcher.bnd_queue.get()
             s_id = bnd_msg["s_id"]
             if s_id not in self._patterns.keys():
-                self._patterns[s_id] = CvPattern(s_id)
+                self._patterns[s_id] = OscPattern(s_id)
             self._patterns[s_id].set_bnd(bnd_msg["bnd"])
             if s_id not in update_log["bnd"]:
                 update_log["bnd"].append(s_id)
@@ -74,7 +74,7 @@ class CvPatternReceiver(OscReceiver):
             sym_msg = self._dispatcher.sym_queue.get()
             s_id = sym_msg["s_id"]
             if s_id not in self._patterns.keys():
-                self._patterns[s_id] = CvPattern(s_id)
+                self._patterns[s_id] = OscPattern(s_id)
             if self._patterns[s_id].get_sym() != sym_msg["sym"]:
                 self._patterns[s_id].set_sym(sym_msg["sym"])
                 if s_id not in update_log["sym"]:
@@ -86,7 +86,7 @@ class CvPatternReceiver(OscReceiver):
             return None
         return self._patterns[s_id]
 
-    def get_patterns(self, s_ids):
+    def get_patterns(self, s_ids=[]):
         if len(s_ids) == 0:
             return self._patterns
         res = {}

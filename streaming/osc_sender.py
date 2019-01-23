@@ -3,7 +3,7 @@ import time
 
 from pythonosc import udp_client
 
-from streaming.cv_pattern import CvPattern
+from streaming.osc_pattern import OscPattern
 
 
 class OscSender(object):
@@ -11,7 +11,6 @@ class OscSender(object):
         self._client = udp_client.SimpleUDPClient(ip, port)
 
     def _send_message(self, path, arg_lst):
-        print("sending: ", path, arg_lst)
         self._client.send_message(path, arg_lst)
 
 
@@ -51,16 +50,16 @@ class CvPatternSender(OscSender):
 
 
 def run_pattern_sender(ip="127.0.0.1", port=5005):
-    from streaming.cv_pattern import CvPatternBnd, CvPatternSym
+    from streaming.osc_pattern import OscPatternBnd, OscPatternSym
     import random
     import uuid
 
-    patterns = [CvPattern() for i in range(0, 10)]
+    patterns = [OscPattern() for i in range(0, 10)]
     for p in patterns:
         x = random.randint(0, 10)
         y = 10 - x
-        p.set_bnd(CvPatternBnd(x, y, 0, 10, 10))
-        p.set_sym(CvPatternSym(str(uuid.uuid4())))
+        p.set_bnd(OscPatternBnd(x, y, 0, 10, 10))
+        p.set_sym(OscPatternSym(str(uuid.uuid4())))
 
     client = CvPatternSender(ip, port)
     client.send_patterns(patterns)

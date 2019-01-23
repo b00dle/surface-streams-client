@@ -1,10 +1,41 @@
 import numpy as np
 import cv2 as cv
 import time
+
+from scipy.spatial import distance as dist
 from tracking.template_matching import SiftPattern, FlannMatcher
+from streaming.osc_pattern import OscPatternBnd
 
 SIFT = cv.xfeatures2d.SIFT_create()
 MIN_MATCH_COUNT = 10
+
+
+def order_points(pts):
+    # sort the points based on their x-coordinates
+    xSorted = pts[np.argsort(pts[:, 0]), :]
+
+    # grab the left-most and right-most points from the sorted
+    # x-roodinate points
+    leftMost = xSorted[:2, :]
+    rightMost = xSorted[2:, :]
+
+    # now, sort the left-most coordinates according to their
+    # y-coordinates so we can grab the top-left and bottom-left
+    # points, respectively
+    leftMost = leftMost[np.argsort(leftMost[:, 1]), :]
+    (tl, bl) = leftMost
+
+    # now that we have the top-left coordinate, use it as an
+    # anchor to calculate the Euclidean distance between the
+    # top-left and right-most points; by the Pythagorean
+    # theorem, the point with the largest distance will be
+    # our bottom-right point
+    D = dist.cdist(tl[np.newaxis], rightMost, "euclidean")[0]
+    (br, tr) = rightMost[np.argsort(D)[::-1], :]
+
+    # return the coordinates in top-left, top-right,
+    # bottom-right, and bottom-left order
+    return np.array([tr, tl, bl, br], dtype="float32")
 
 
 class GstCvTracking(object):
@@ -13,7 +44,7 @@ class GstCvTracking(object):
         self.patterns = {}
         self._frame_pattern = SiftPattern("THE-FRAME")
 
-    def track(self, image, overlay_result=True):
+    def track(self, image):
         """ SIFT/FLANN based object recognition is performed on image.
             frame should be a cv image. Matched patterns can be managed
             using patterns variable of this instance.
@@ -21,15 +52,20 @@ class GstCvTracking(object):
             around objects found. Returns a list of CvTrackingResults. """
         res = []
         self._frame_pattern.set_image(image)
+        h, w, c = image.shape
         for pattern in self.patterns.values():
             good = self._flann.knn_match(pattern, self._frame_pattern)
             if len(good) >= MIN_MATCH_COUNT:
                 M, mask = self._flann.find_homography(pattern, self._frame_pattern, good)
-                res.append(CvTrackingResult(M, mask, pattern.get_id()))
-                if overlay_result:
-                    pts = pattern.get_shape_points()
-                    dst = cv.perspectiveTransform(pts, M)
-                    image = cv.polylines(image, [np.int32(dst)], True, 255, 3, cv.LINE_AA)
+                pts = pattern.get_shape_points()
+                dst = cv.perspectiveTransform(pts, M)
+                rect = cv.minAreaRect(dst)
+                bnd = OscPatternBnd(
+                    rect[0][0], rect[0][1],  # pos
+                    rect[2],                 # angle
+                    rect[1][0], rect[1][1]   # size
+                ).normalized(h, w)
+                res.append(CvTrackingResult(pattern.get_id(), bnd))
         return res
 
     def load_pattern(self, path, pattern_id=None):
@@ -49,16 +85,15 @@ class GstCvTracking(object):
 class CvTrackingResult(object):
     """ Data Transfer object for Tracking Results. """
 
-    def __init__(self, homography=None, mask=None, pattern_id=None):
-        self.homography = homography
-        self.mask = mask
+    def __init__(self, pattern_id=None, bnd=OscPatternBnd()):
         self.pattern_id = pattern_id
+        self.bnd = bnd
 
     def is_valid(self):
-        return self.homography is not None and self.mask is not None and self.pattern_id is not None
+        return self.pattern_id is not None and not self.bnd.is_empty()
 
 
-def test_list_match_video(pattern_paths, video_path):
+def run(pattern_paths, video_path):
     tracker = GstCvTracking()
     tracker.load_patterns(pattern_paths)
 
@@ -74,7 +109,6 @@ def test_list_match_video(pattern_paths, video_path):
 
     since_print = 0.0
     fps_collection = []
-    tracking_res = []
     track_num = 0
     while True:
         start_time = time.time()
@@ -83,12 +117,23 @@ def test_list_match_video(pattern_paths, video_path):
         if ret == False:
             break
 
+        h, w, c = frame.shape
+
         i = 0
         for res in tracker.track(frame):
+            bnd_s = res.bnd.scaled(h, w)
+            box = cv.boxPoints((
+               (bnd_s.x_pos, bnd_s.y_pos),
+               (bnd_s.width, bnd_s.height),
+               bnd_s.angle
+            ))
+            frame = cv.polylines(frame, [np.int32(box)], True, 255, 3, cv.LINE_AA)
             if i == track_num:
                 img = tracker.patterns[res.pattern_id].get_image().copy()
-                w, h, c = frame.shape
-                img = cv.warpPerspective(img, res.homography, (h, w))
+                img_h, img_w = img.shape
+                pts = np.float32([[0, 0], [0, img_h - 1], [img_w - 1, img_h - 1], [img_w - 1, 0]]).reshape(-1, 1, 2)
+                M = cv.getPerspectiveTransform(pts, order_points(box))
+                img = cv.warpPerspective(img, M, (w, h))
                 cv.imshow("tracked-pattern", img)
             i += 1
 

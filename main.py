@@ -307,7 +307,7 @@ def run_tracking_test(mode="img-match"):
             video_path='CLIENT_DATA/track.mp4'
         )
     elif mode == "video-list-match":
-        gst_cv_tracking.test_list_match_video(
+        gst_cv_tracking.run(
             pattern_paths=[
                 'CLIENT_DATA/noble-128w.png',
                 'CLIENT_DATA/swamp1-128w.png',
@@ -329,8 +329,28 @@ def run_osc_server():
     osc_receiver.run_pattern_receiver()
 
 
+def run_cv_tracking_sender(ip="127.0.0.1", port=5005):
+    from streaming import cv_tracking_streamer
+    cv_tracking_streamer.run_sender(
+        ip, port,
+        pattern_paths=[
+            'CLIENT_DATA/noble-128w.png',
+            'CLIENT_DATA/swamp1-128w.png',
+            'CLIENT_DATA/swamp2-128w.png'
+        ],
+        video_path='CLIENT_DATA/track.mp4'
+    )
+
+
+def run_cv_tracking_receiver(ip="127.0.0.1", port=5005):
+    from streaming import cv_tracking_streamer
+    cv_tracking_streamer.run_receiver(ip, port)
+
+
 if __name__ == "__main__":
-    run_osc_server()
+    run_cv_tracking_sender()
+    #run_cv_tracking_receiver()
+    #run_osc_server()
     #run_osc_client()
     #run_tracking_test("video-list-match")
     #main()

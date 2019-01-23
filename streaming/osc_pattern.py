@@ -1,4 +1,4 @@
-class CvPatternBnd(object):
+class OscPatternBnd(object):
     def __init__(self, x_pos=0.0, y_pos=0.0, angle=0.0, width=0.0, height=0.0):
         self.x_pos = x_pos
         self.y_pos = y_pos
@@ -8,6 +8,12 @@ class CvPatternBnd(object):
 
     def is_empty(self):
         return self.width <= 0 or self.height <= 0
+
+    def normalized(self, h, w):
+        return OscPatternBnd(self.x_pos / w, self.y_pos / h, self.angle, self.width / w, self.height / h)
+
+    def scaled(self, h, w):
+        return OscPatternBnd(self.x_pos * w, self.y_pos * h, self.angle, self.width * w, self.height * h)
 
     def __str__(self):
         s = "<CvPatternBnd x_pos="+str(self.x_pos)+" y_pos="+str(self.y_pos)+" "
@@ -19,7 +25,7 @@ class CvPatternBnd(object):
         return self.__str__()
 
 
-class CvPatternSym(object):
+class OscPatternSym(object):
     def __init__(self, uuid=None, tu_id=-1, c_id=-1):
         self.uuid = uuid
         self.tu_id = tu_id
@@ -45,16 +51,20 @@ class CvPatternSym(object):
         return self.__str__()
 
 
-class CvPattern(object):
+class OscPattern(object):
     current_pattern_count = 0
 
-    def __init__(self, s_id=None, bnd=CvPatternBnd(), sym=CvPatternSym()):
+    def __init__(self, s_id=None, bnd=None, sym=None):
         self._s_id = s_id
         if self._s_id is None:
-            self._s_id = CvPattern.current_pattern_count
-            CvPattern.current_pattern_count += 1
+            self._s_id = OscPattern.current_pattern_count
+            OscPattern.current_pattern_count += 1
         self._bnd = bnd
+        if self._bnd is None:
+            self._bnd = OscPatternBnd()
         self._sym = sym
+        if self._sym is None:
+            self._sym = OscPatternSym()
 
     def __str__(self):
         s = "<CvPattern s_id="+str(self._s_id)+ " "
