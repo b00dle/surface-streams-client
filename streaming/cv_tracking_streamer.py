@@ -1,6 +1,8 @@
 import numpy as np
 import cv2 as cv
 import time
+import os
+
 from streaming import api_helper
 from scipy.spatial import distance as dist
 from streaming.osc_sender import CvPatternSender
@@ -37,7 +39,7 @@ def order_points(pts):
     return np.array([tr, tl, bl, br], dtype="float32")
 
 
-def run_sender(ip, port, pattern_paths, video_path):
+def run_sender(ip, port, pattern_paths, video_path, pattern_match_scale=0.5, video_width=480):
     # initialize osc sender
     sender = CvPatternSender(ip, port)
     osc_patterns = {}
@@ -55,12 +57,13 @@ def run_sender(ip, port, pattern_paths, video_path):
         p_idx += 1
 
     tracker = GstCvTracking()
-    tracker.load_patterns(pattern_paths, pattern_ids)
+    tracker.load_patterns(pattern_paths, pattern_ids, pattern_match_scale)
 
     # setup video capture
     cap = cv.VideoCapture(
         "filesrc location=\"" + video_path + "\" ! decodebin ! videoconvert ! "
-                                             "videoscale ! video/x-raw, width=480, pixel-aspect-ratio=1/1 ! appsink"
+        "videoscale ! video/x-raw, width=" + str(video_width) +
+        ", pixel-aspect-ratio=1/1 ! appsink"
     )
 
     if not cap.isOpened():
@@ -125,37 +128,18 @@ def run_sender(ip, port, pattern_paths, video_path):
             track_num = (track_num + 1) % len(tracker.patterns)
 
 
-def run_receiver(ip, port):
+def run_receiver(ip, port, w, h):
     server = CvPatternReceiver(ip, port)
     server.start()
 
     download_folder = "CLIENT_DATA/"
     images = {}
-
-    w = 480
-    h = 270
+    img_paths = []
 
     frame = np.zeros((h, w, 3), np.uint8)
 
     while True:
         update_log = server.update_patterns()
-
-        '''
-        nothing_updated = True
-        if len(update_log["sym"]) > 0:
-            for p in server.get_patterns(update_log["sym"]).values():
-                uuid = p.get_sym().uuid
-                if uuid in images:
-                    continue
-                img_path = api_helper.download_image(uuid, download_folder)
-                if len(img_path) > 0:
-                    print("SUCCESS: downloaded " + img_path)
-                    images[uuid] = cv.imread(img_path, 0)
-            nothing_updated = False
-        
-        if len(update_log["bnd"]) > 0:
-            nothing_updated = False
-        '''
 
         if len(update_log["bnd"]) > 0 or len(update_log["sym"]) > 0:
             frame[:, :] = (0, 0, 0)
@@ -167,7 +151,8 @@ def run_receiver(ip, port):
                 if uuid not in images:
                     img_path = api_helper.download_image(uuid, download_folder)
                     if len(img_path) > 0:
-                        images[uuid] = cv.imread(img_path, 0)
+                        img_paths.append(img_path)
+                        images[uuid] = cv.imread(img_path, -1)
                 # draw frame around tracked box
                 bnd_s = p.get_bnd().scaled(h, w)
                 box = cv.boxPoints((
@@ -176,6 +161,14 @@ def run_receiver(ip, port):
                     bnd_s.angle
                 ))
                 frame = cv.polylines(frame, [np.int32(box)], True, 255, 3, cv.LINE_AA)
+                # draw transformed pattern
+                if uuid in images:
+                    # transform pattern
+                    img = images[uuid].copy()
+                    img_h, img_w, img_c = img.shape
+                    pts = np.float32([[0, 0], [0, img_h - 1], [img_w - 1, img_h - 1], [img_w - 1, 0]]).reshape(-1, 1, 2)
+                    M = cv.getPerspectiveTransform(pts, order_points(box))
+                    frame = cv.warpPerspective(img, M, (w,h), frame, borderMode=cv.BORDER_TRANSPARENT)
 
         cv.imshow("FRAME", frame)
 
@@ -183,4 +176,12 @@ def run_receiver(ip, port):
         if key_pressed == ord('q'):
             break
 
+    # cleanup
     cv.destroyAllWindows()
+    server.terminate()
+    # remove temp images
+    while len(img_paths) > 0:
+        img_path = img_paths[0]
+        if os.path.exists(img_path):
+            os.remove(img_path)
+        img_paths.remove(img_path)

@@ -68,18 +68,18 @@ class GstCvTracking(object):
                 res.append(CvTrackingResult(pattern.get_id(), bnd))
         return res
 
-    def load_pattern(self, path, pattern_id=None):
+    def load_pattern(self, path, pattern_id=None, scale=1.0):
         if pattern_id is None:
             pattern_id = path.split("/")[-1]
         self.patterns[pattern_id] = SiftPattern(pattern_id, SIFT)
         # load and compute descriptors only once
-        self.patterns[pattern_id].load_image(path)
+        self.patterns[pattern_id].load_image(path, scale)
 
-    def load_patterns(self, paths, pattern_ids=[]):
+    def load_patterns(self, paths, pattern_ids=[], scale=1.0):
         if len(paths) != len(pattern_ids):
             pattern_ids = [None for i in range(0, len(paths))]
         for i in range(0, len(paths)):
-            self.load_pattern(paths[i], pattern_ids[i])
+            self.load_pattern(paths[i], pattern_ids[i], scale)
 
 
 class CvTrackingResult(object):

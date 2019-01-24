@@ -329,22 +329,26 @@ def run_osc_server():
     osc_receiver.run_pattern_receiver()
 
 
-def run_cv_tracking_sender(ip="127.0.0.1", port=5005):
+def run_cv_tracking_sender(ip="127.0.0.1", port=5005, pattern_match_scale=0.18, video_width=480):
     from streaming import cv_tracking_streamer
     cv_tracking_streamer.run_sender(
         ip, port,
         pattern_paths=[
-            'CLIENT_DATA/noble-128w.png',
-            'CLIENT_DATA/swamp1-128w.png',
-            'CLIENT_DATA/swamp2-128w.png'
+            'CLIENT_DATA/noble-720w.png',
+            'CLIENT_DATA/swamp1-720w.png',
+            'CLIENT_DATA/swamp2-720w.png'
         ],
-        video_path='CLIENT_DATA/track.mp4'
+        video_path='CLIENT_DATA/track.mp4',
+        pattern_match_scale=pattern_match_scale,
+        video_width=video_width
     )
 
 
 def run_cv_tracking_receiver(ip="127.0.0.1", port=5005):
     from streaming import cv_tracking_streamer
-    cv_tracking_streamer.run_receiver(ip, port)
+    w = 480 * 3
+    h = 270 * 3
+    cv_tracking_streamer.run_receiver(ip, port, w, h)
 
 
 if __name__ == "__main__":

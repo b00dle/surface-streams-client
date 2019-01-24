@@ -36,8 +36,10 @@ class SiftPattern(object):
         h, w = self._img.shape
         return np.float32([[0, 0], [0, h - 1], [w - 1, h - 1], [w - 1, 0]]).reshape(-1, 1, 2)
 
-    def load_image(self, file_path):
+    def load_image(self, file_path, scale=1.0):
         self._img = cv.imread(file_path, 0)
+        if scale != 1:
+            self._img = cv.resize(self._img, (0,0), fx=scale, fy=scale)
         self._detect_and_compute()
 
     def set_image(self, img):
