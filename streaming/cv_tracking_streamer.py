@@ -60,11 +60,15 @@ def run_sender(ip, port, pattern_paths, video_path, pattern_match_scale=0.5, vid
     tracker.load_patterns(pattern_paths, pattern_ids, pattern_match_scale)
 
     # setup video capture
+    '''
     cap = cv.VideoCapture(
         "filesrc location=\"" + video_path + "\" ! decodebin ! videoconvert ! "
         "videoscale ! video/x-raw, width=" + str(video_width) +
         ", pixel-aspect-ratio=1/1 ! appsink"
     )
+    '''
+    cap = cv.VideoCapture("v4l2src ! videoscale ! video/x-raw, width=" + str(video_width) +
+                          ", pixel-aspect-ratio=1/1 ! appsink")
 
     if not cap.isOpened():
         print("Cannot capture test src. Exiting.")
@@ -72,7 +76,6 @@ def run_sender(ip, port, pattern_paths, video_path, pattern_match_scale=0.5, vid
 
     since_print = 0.0
     fps_collection = []
-    track_num = -1
     while True:
         start_time = time.time()
 
@@ -84,7 +87,6 @@ def run_sender(ip, port, pattern_paths, video_path, pattern_match_scale=0.5, vid
         # patterns to send
         upd_patterns = []
 
-        i = 0
         for res in tracker.track(frame):
             # update patterns to send
             osc_patterns[res.pattern_id].set_bnd(res.bnd)
@@ -94,19 +96,10 @@ def run_sender(ip, port, pattern_paths, video_path, pattern_match_scale=0.5, vid
             bnd_s = res.bnd.scaled(h, w)
             box = cv.boxPoints((
                 (bnd_s.x_pos, bnd_s.y_pos),
-                (bnd_s.width, bnd_s.height),
+                (-bnd_s.width, bnd_s.height),
                 bnd_s.angle
             ))
             frame = cv.polylines(frame, [np.int32(box)], True, 255, 3, cv.LINE_AA)
-            # draw frame in separate window
-            if i == track_num:
-                img = tracker.patterns[res.pattern_id].get_image().copy()
-                img_h, img_w = img.shape
-                pts = np.float32([[0, 0], [0, img_h - 1], [img_w - 1, img_h - 1], [img_w - 1, 0]]).reshape(-1, 1, 2)
-                M = cv.getPerspectiveTransform(pts, order_points(box))
-                img = cv.warpPerspective(img, M, (w, h))
-                cv.imshow("tracked-pattern", img)
-            i += 1
 
         # send patterns
         sender.send_patterns(upd_patterns)
@@ -117,15 +110,13 @@ def run_sender(ip, port, pattern_paths, video_path, pattern_match_scale=0.5, vid
         fps_collection.append(1.0 / elapsed_time)
         since_print += elapsed_time
         if since_print > 1.0:
-            print("avg fps:", int(sum(fps_collection) / float(len(fps_collection))))
+            #print("avg fps:", int(sum(fps_collection) / float(len(fps_collection))))
             fps_collection = []
             since_print = 0.0
 
         key_pressed = cv.waitKey(1) & 0xFF
         if key_pressed == ord('q'):
             break
-        elif key_pressed == ord('w'):
-            track_num = (track_num + 1) % len(tracker.patterns)
 
 
 def run_receiver(ip, port, w, h):
@@ -157,8 +148,8 @@ def run_receiver(ip, port, w, h):
                 bnd_s = p.get_bnd().scaled(h, w)
                 box = cv.boxPoints((
                     (bnd_s.x_pos, bnd_s.y_pos),
-                    (bnd_s.width, bnd_s.height),
-                    bnd_s.angle
+                    (-bnd_s.width, bnd_s.height),
+                    bnd_s.angle#bnd_s.angle if bnd_s.width < bnd_s.height else bnd_s.angle - 90
                 ))
                 frame = cv.polylines(frame, [np.int32(box)], True, 255, 3, cv.LINE_AA)
                 # draw transformed pattern
@@ -167,7 +158,7 @@ def run_receiver(ip, port, w, h):
                     img = images[uuid].copy()
                     img_h, img_w, img_c = img.shape
                     pts = np.float32([[0, 0], [0, img_h - 1], [img_w - 1, img_h - 1], [img_w - 1, 0]]).reshape(-1, 1, 2)
-                    M = cv.getPerspectiveTransform(pts, order_points(box))
+                    M = cv.getPerspectiveTransform(pts, box)#order_points(box))
                     frame = cv.warpPerspective(img, M, (w,h), frame, borderMode=cv.BORDER_TRANSPARENT)
 
         cv.imshow("FRAME", frame)

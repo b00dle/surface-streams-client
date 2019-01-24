@@ -1,6 +1,7 @@
 import numpy as np
 import cv2 as cv
 import time
+import math
 
 from scipy.spatial import distance as dist
 from tracking.template_matching import SiftPattern, FlannMatcher
@@ -44,6 +45,28 @@ class GstCvTracking(object):
         self.patterns = {}
         self._frame_pattern = SiftPattern("THE-FRAME")
 
+    def vec_length(self, v):
+        return math.sqrt(sum([v[i]*v[i] for i in range(0,len(v))]))
+
+    def get_rot(self, M):
+        rad = -math.atan2(M[0][1], M[0][0])
+        deg = math.degrees(rad)
+        print("========")
+        print(rad)
+        print(deg)
+        return deg
+
+    def get_trans(self, M):
+        return [M[0][2], M[1][2]]
+
+    def get_scale(self, M):
+        s_x = np.sign(M[0][0]) * self.vec_length([M[0][0], M[0][1]])
+        s_y = np.sign(M[1][1]) * self.vec_length([M[1][0], M[1][1]])
+        return [s_x, s_y]
+
+    def decompose_mat(self, M):
+        return {"T": self.get_trans(M), "R": self.get_rot(M), "S": self.get_scale(M)}
+
     def track(self, image):
         """ SIFT/FLANN based object recognition is performed on image.
             frame should be a cv image. Matched patterns can be managed
@@ -60,9 +83,14 @@ class GstCvTracking(object):
                 pts = pattern.get_shape_points()
                 dst = cv.perspectiveTransform(pts, M)
                 rect = cv.minAreaRect(dst)
+                # rotation angle of area rect
+                # doesn't take into account the pattern orientation
+                angle = self.get_rot(M) + 90
+                if rect[1][0] < rect[1][1]:
+                    angle = 90 + angle
                 bnd = OscPatternBnd(
                     rect[0][0], rect[0][1],  # pos
-                    rect[2],                 # angle
+                    angle,                   # rotation
                     rect[1][0], rect[1][1]   # size
                 ).normalized(h, w)
                 res.append(CvTrackingResult(pattern.get_id(), bnd))
