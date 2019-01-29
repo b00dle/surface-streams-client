@@ -1,7 +1,9 @@
+import sys
+from textwrap import fill
+
 '''
 import requests
 from datetime import datetime
-import sys
 import gi
 import cv2
 gi.require_version("Gst", "1.0")
@@ -237,12 +239,12 @@ def run_asynchoro_test():
         asyncoro.Coro(client_proc, host, port)
 
 
-def main():
+def fill_global_vars():
     global SENDER, RECEIVER, MY_IP, SERVER_IP, METHOD, REALSENSE_DIR, PROTOCOL
 
-    #METHOD = "realsense"
-    #METHOD = "filesrc"
-    #METHOD = "imagetest"
+    # METHOD = "realsense"
+    # METHOD = "filesrc"
+    # METHOD = "imagetest"
     METHOD = "cvtest"
     REALSENSE_DIR = "/home/companion/surface-streams/"
     PROTOCOL = "jpeg"
@@ -270,6 +272,12 @@ def main():
     print("  > Server IP:", SERVER_IP)
     print("  > Method:", METHOD)
     print("  > Realsense dir:", REALSENSE_DIR)
+
+
+def main():
+    global SENDER, RECEIVER, MY_IP, SERVER_IP, METHOD, REALSENSE_DIR, PROTOCOL
+
+    fill_global_vars()
 
     # run each call separately to create 3 clients
     if METHOD == "realsense":
@@ -331,11 +339,16 @@ def run_osc_server():
 
 def run_cv_tracking_sender(ip="127.0.0.1", port=5005, pattern_match_scale=0.18, video_width=720):
     from streaming import cv_tracking_streamer
+    from streaming import api_helper
+    global SERVER_IP
+
+    fill_global_vars()
+    api_helper.SERVER_IP = SERVER_IP
+
     cv_tracking_streamer.run_sender(
         ip, port,
         pattern_paths=[
             "CLIENT_DATA/207.jpg",
-            "CLIENT_DATA/screen.jpg"
             #'CLIENT_DATA/noble-720w.png',
             #'CLIENT_DATA/swamp1-720w.png',
             #'CLIENT_DATA/swamp2-720w.png'
@@ -346,16 +359,23 @@ def run_cv_tracking_sender(ip="127.0.0.1", port=5005, pattern_match_scale=0.18, 
     )
 
 
-def run_cv_tracking_receiver(ip="127.0.0.1", port=5005):
+def run_cv_tracking_receiver(ip="127.0.0.1", tuio_port=5005, frame_port=None):
     from streaming import cv_tracking_streamer
-    w = 480 * 3
-    h = 270 * 3
-    cv_tracking_streamer.run_receiver(ip, port, w, h)
+    from streaming import api_helper
+    global SERVER_IP
+
+    fill_global_vars()
+    api_helper.SERVER_IP = SERVER_IP
+
+    w = 720 * 2
+    h = 540 * 2
+    cv_tracking_streamer.run_receiver(ip, tuio_port, w, h, frame_port)
 
 
 if __name__ == "__main__":
-    #run_cv_tracking_sender()
-    run_cv_tracking_receiver()
+    # gst-launch-1.0 filesrc location="/home/companion/Videos/green-sample.mp4" ! decodebin ! videoconvert ! videoscale ! video/x-raw, width=320, pixel-aspect-ratio=1/1 ! jpegenc ! rtpgstpay ! udpsink port=5002
+    run_cv_tracking_sender()
+    #run_cv_tracking_receiver(frame_port=None)
     #run_osc_server()
     #run_osc_client()
     #run_tracking_test("video-list-match")

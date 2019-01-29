@@ -76,6 +76,7 @@ def run_sender(ip, port, pattern_paths, video_path, pattern_match_scale=0.5, vid
 
     since_print = 0.0
     fps_collection = []
+    print_config = True
     while True:
         start_time = time.time()
 
@@ -83,6 +84,11 @@ def run_sender(ip, port, pattern_paths, video_path, pattern_match_scale=0.5, vid
         if ret == False:
             break
         h, w, c = frame.shape
+
+        if print_config:
+            print("INITIALIZING Tracking")
+            print("  > capture frame size ", w, h)
+            print_config = False
 
         # patterns to send
         upd_patterns = []
@@ -119,7 +125,9 @@ def run_sender(ip, port, pattern_paths, video_path, pattern_match_scale=0.5, vid
             break
 
 
-def run_receiver(ip, port, w, h):
+def run_receiver(ip, port, w, h, frame_port=None):
+    import streaming
+
     server = CvPatternReceiver(ip, port)
     server.start()
 
@@ -127,39 +135,60 @@ def run_receiver(ip, port, w, h):
     images = {}
     img_paths = []
 
-    frame = np.zeros((h, w, 3), np.uint8)
+    cap = None
+    if frame_port is not None:
+        gst_pipe = "udpsrc port=" + str(frame_port) + " ! " + streaming.JPEG_CAPS + \
+                   " ! queue ! rtpgstdepay ! jpegdec ! videoconvert ! " \
+                   "videoscale ! video/x-raw, width=" + str(w) + \
+                   ", pixel-aspect-ratio=1/1 ! appsink"
+        cap = cv.VideoCapture(gst_pipe)
+        if not cap.isOpened():
+            print("Cannot capture from udp. Exiting.")
+            quit()
+
+    frame = None
+    if cap is None:
+        frame = np.zeros((h, w, 3), np.uint8)
 
     while True:
         update_log = server.update_patterns()
 
-        if len(update_log["bnd"]) > 0 or len(update_log["sym"]) > 0:
+        if cap is not None:
+            ret, frame = cap.read()
+            h, w, c = frame.shape
+            if not ret:
+                break
+
+        #if len(update_log["bnd"]) > 0 or len(update_log["sym"]) > 0:
+        if cap is None:
             frame[:, :] = (0, 0, 0)
-            for p in server.get_patterns().values():
-                if not p.is_valid():
-                    continue
-                uuid = p.get_sym().uuid
-                # download image
-                if uuid not in images:
-                    img_path = api_helper.download_image(uuid, download_folder)
-                    if len(img_path) > 0:
-                        img_paths.append(img_path)
-                        images[uuid] = cv.imread(img_path, -1)
-                # draw frame around tracked box
-                bnd_s = p.get_bnd().scaled(h, w)
-                box = cv.boxPoints((
-                    (bnd_s.x_pos, bnd_s.y_pos),
-                    (-bnd_s.width, bnd_s.height),
-                    bnd_s.angle#bnd_s.angle if bnd_s.width < bnd_s.height else bnd_s.angle - 90
-                ))
-                frame = cv.polylines(frame, [np.int32(box)], True, 255, 3, cv.LINE_AA)
-                # draw transformed pattern
-                if uuid in images:
-                    # transform pattern
-                    img = images[uuid].copy()
-                    img_h, img_w, img_c = img.shape
-                    pts = np.float32([[0, 0], [0, img_h - 1], [img_w - 1, img_h - 1], [img_w - 1, 0]]).reshape(-1, 1, 2)
-                    M = cv.getPerspectiveTransform(pts, box)#order_points(box))
-                    frame = cv.warpPerspective(img, M, (w,h), frame, borderMode=cv.BORDER_TRANSPARENT)
+
+        for p in server.get_patterns().values():
+            if not p.is_valid():
+                continue
+            uuid = p.get_sym().uuid
+            # download image
+            if uuid not in images:
+                img_path = api_helper.download_image(uuid, download_folder)
+                if len(img_path) > 0:
+                    img_paths.append(img_path)
+                    images[uuid] = cv.imread(img_path, -1)
+            # draw frame around tracked box
+            bnd_s = p.get_bnd().scaled(h, w)
+            box = cv.boxPoints((
+                (bnd_s.x_pos, bnd_s.y_pos),
+                (-bnd_s.width, bnd_s.height),
+                bnd_s.angle#bnd_s.angle if bnd_s.width < bnd_s.height else bnd_s.angle - 90
+            ))
+            frame = cv.polylines(frame, [np.int32(box)], True, 255, 3, cv.LINE_AA)
+            # draw transformed pattern
+            if uuid in images:
+                # transform pattern
+                img = images[uuid].copy()
+                img_h, img_w, img_c = img.shape
+                pts = np.float32([[0, 0], [0, img_h - 1], [img_w - 1, img_h - 1], [img_w - 1, 0]]).reshape(-1, 1, 2)
+                M = cv.getPerspectiveTransform(pts, box)#order_points(box))
+                frame = cv.warpPerspective(img, M, (w,h), frame, borderMode=cv.BORDER_TRANSPARENT)
 
         cv.imshow("FRAME", frame)
 

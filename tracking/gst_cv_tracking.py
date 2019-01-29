@@ -51,9 +51,9 @@ class GstCvTracking(object):
     def get_rot(self, M):
         rad = -math.atan2(M[0][1], M[0][0])
         deg = math.degrees(rad)
-        print("========")
-        print(rad)
-        print(deg)
+        #print("========")
+        #print(rad)
+        #print(deg)
         return deg
 
     def get_trans(self, M):
