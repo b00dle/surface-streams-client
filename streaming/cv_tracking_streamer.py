@@ -70,6 +70,7 @@ def run_sender(ip, port, pattern_paths, video_path, pattern_match_scale=0.5, vid
     cap = cv.VideoCapture("v4l2src ! videoscale ! video/x-raw, width=" + str(video_width) +
                           ", pixel-aspect-ratio=1/1 ! appsink")
 
+
     if not cap.isOpened():
         print("Cannot capture test src. Exiting.")
         quit()
@@ -99,7 +100,7 @@ def run_sender(ip, port, pattern_paths, video_path, pattern_match_scale=0.5, vid
             if osc_patterns[res.pattern_id] not in upd_patterns:
                 upd_patterns.append(osc_patterns[res.pattern_id])
             # draw frame around tracked box
-            bnd_s = res.bnd.scaled(h, w)
+            bnd_s = res.bnd.scaled(h, h)
             box = cv.boxPoints((
                 (bnd_s.x_pos, bnd_s.y_pos),
                 (-bnd_s.width, bnd_s.height),
@@ -174,7 +175,7 @@ def run_receiver(ip, port, w, h, frame_port=None):
                     img_paths.append(img_path)
                     images[uuid] = cv.imread(img_path, -1)
             # draw frame around tracked box
-            bnd_s = p.get_bnd().scaled(h, w)
+            bnd_s = p.get_bnd().scaled(h, h)
             box = cv.boxPoints((
                 (bnd_s.x_pos, bnd_s.y_pos),
                 (-bnd_s.width, bnd_s.height),

@@ -85,14 +85,19 @@ class GstCvTracking(object):
                 rect = cv.minAreaRect(dst)
                 # rotation angle of area rect
                 # doesn't take into account the pattern orientation
-                angle = self.get_rot(M) + 90
-                if rect[1][0] < rect[1][1]:
-                    angle = 90 + angle
+                angle = self.get_rot(M) + 180
+                width = rect[1][0]
+                height = rect[1][1]
+                if width < height:
+                    t = width
+                    width = height
+                    height = t
+                    #angle = 90 + angle
                 bnd = OscPatternBnd(
                     rect[0][0], rect[0][1],  # pos
                     angle,                   # rotation
-                    rect[1][0], rect[1][1]   # size
-                ).normalized(h, w)
+                    width, height            # size
+                ).normalized(h, h)
                 res.append(CvTrackingResult(pattern.get_id(), bnd))
         return res
 
@@ -149,7 +154,7 @@ def run(pattern_paths, video_path):
 
         i = 0
         for res in tracker.track(frame):
-            bnd_s = res.bnd.scaled(h, w)
+            bnd_s = res.bnd.scaled(h, h)
             box = cv.boxPoints((
                (bnd_s.x_pos, bnd_s.y_pos),
                (bnd_s.width, bnd_s.height),

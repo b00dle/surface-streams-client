@@ -17,6 +17,7 @@ class OscSender(object):
 def extract_bnd_args(pattern):
     return [
         pattern.get_s_id(),
+        pattern.get_u_id(),
         pattern.get_bnd().x_pos,
         pattern.get_bnd().y_pos,
         pattern.get_bnd().angle,
@@ -28,6 +29,7 @@ def extract_bnd_args(pattern):
 def extract_sym_args(pattern):
     return [
         pattern.get_s_id(),
+        pattern.get_u_id(),
         pattern.get_sym().tu_id,
         pattern.get_sym().c_id,
         "uuid",
@@ -54,7 +56,8 @@ def run_pattern_sender(ip="127.0.0.1", port=5005):
     import random
     import uuid
 
-    patterns = [OscPattern() for i in range(0, 10)]
+    patterns = [OscPattern(u_id=random.randint(0,500))
+                for i in range(0, 10)]
     for p in patterns:
         x = random.randint(0, 10)
         y = 10 - x
@@ -71,6 +74,11 @@ def run_pattern_sender(ip="127.0.0.1", port=5005):
         p.set_y_pos(random.randint(0,7))
         client.send_pattern(p)
         time.sleep(1)
+
+
+'''
+minimum example of osc sender
+'''
 
 
 def run(ip="127.0.0.1", port=5005):

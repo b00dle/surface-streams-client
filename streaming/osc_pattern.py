@@ -54,7 +54,7 @@ class OscPatternSym(object):
 class OscPattern(object):
     current_pattern_count = 0
 
-    def __init__(self, s_id=None, bnd=None, sym=None):
+    def __init__(self, s_id=None, bnd=None, sym=None, u_id=-1):
         self._s_id = s_id
         if self._s_id is None:
             self._s_id = OscPattern.current_pattern_count
@@ -65,9 +65,10 @@ class OscPattern(object):
         self._sym = sym
         if self._sym is None:
             self._sym = OscPatternSym()
+        self._u_id = u_id # user_id
 
     def __str__(self):
-        s = "<CvPattern s_id="+str(self._s_id)+ " "
+        s = "<CvPattern s_id="+str(self._s_id)+" "+"u_id="+str(self._u_id)+" "
         s += "bnd="+str(self._bnd)+" sym="+str(self._sym)+">"
         return s
 
@@ -79,6 +80,9 @@ class OscPattern(object):
 
     def get_s_id(self):
         return self._s_id
+
+    def get_u_id(self):
+        return self._u_id
 
     def get_bnd(self):
         return self._bnd

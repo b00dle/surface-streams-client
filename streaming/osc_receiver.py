@@ -22,16 +22,16 @@ class OscReceiver(object):
         self._server_process.terminate()
 
 
-def bnd_handler(path, fixed_args, s_id, x_pos, y_pos, angle, width, height):
+def bnd_handler(path, fixed_args, s_id, u_id, x_pos, y_pos, angle, width, height):
     msg_queue = fixed_args[0]
-    msg_queue.put({"s_id": s_id, "bnd": OscPatternBnd(x_pos, y_pos, angle, width, height)})
+    msg_queue.put({"s_id": s_id, "u_id": u_id, "bnd": OscPatternBnd(x_pos, y_pos, angle, width, height)})
 
 
-def sym_handler(path, fixed_args, s_id, tu_id, c_id, sym_type, sym_value):
+def sym_handler(path, fixed_args, s_id, u_id, tu_id, c_id, sym_type, sym_value):
     if sym_type != "uuid":
         raise ValueError("FAILURE: sym_type must be 'uuid'\n  > got:", sym_type)
     msg_queue = fixed_args[0]
-    msg_queue.put({"s_id": s_id, "sym": OscPatternSym(sym_value, tu_id, c_id)})
+    msg_queue.put({"s_id": s_id, "u_id": u_id, "sym": OscPatternSym(sym_value, tu_id, c_id)})
 
 
 class CvPatternDispatcher(dispatcher.Dispatcher):
@@ -64,8 +64,9 @@ class CvPatternReceiver(OscReceiver):
         while not self._dispatcher.bnd_queue.empty():
             bnd_msg = self._dispatcher.bnd_queue.get()
             s_id = bnd_msg["s_id"]
+            u_id = bnd_msg["u_id"]
             if s_id not in self._patterns.keys():
-                self._patterns[s_id] = OscPattern(s_id)
+                self._patterns[s_id] = OscPattern(s_id=s_id, u_id=u_id)
             self._patterns[s_id].set_bnd(bnd_msg["bnd"])
             if s_id not in update_log["bnd"]:
                 update_log["bnd"].append(s_id)
@@ -73,8 +74,9 @@ class CvPatternReceiver(OscReceiver):
         while not self._dispatcher.sym_queue.empty():
             sym_msg = self._dispatcher.sym_queue.get()
             s_id = sym_msg["s_id"]
+            u_id = sym_msg["u_id"]
             if s_id not in self._patterns.keys():
-                self._patterns[s_id] = OscPattern(s_id)
+                self._patterns[s_id] = OscPattern(s_id=s_id, u_id=u_id)
             if self._patterns[s_id].get_sym() != sym_msg["sym"]:
                 self._patterns[s_id].set_sym(sym_msg["sym"])
                 if s_id not in update_log["sym"]:
@@ -115,6 +117,12 @@ def run_pattern_receiver(ip="127.0.0.1", port=5005):
             print("Waiting for BND or SYM update")
 
         time.sleep(1)
+
+
+'''
+minimum example of osc receiver
+'''
+
 
 def _print_foo_handler(unused_addr, fixed_args, *lst):
     fixed_args[0].put([unused_addr, lst])
