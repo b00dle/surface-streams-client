@@ -39,7 +39,8 @@ def order_points(pts):
     return np.array([tr, tl, bl, br], dtype="float32")
 
 
-def run_sender(ip, port, pattern_paths, video_path, pattern_match_scale=0.5, video_width=480):
+def run_sender(ip, port, pattern_paths, video_path=None, gst_video_pipe=None, pattern_match_scale=0.5,
+               video_width=480, verbose=False, visualize=True):
     # initialize osc sender
     sender = CvPatternSender(ip, port)
     osc_patterns = {}
@@ -60,16 +61,20 @@ def run_sender(ip, port, pattern_paths, video_path, pattern_match_scale=0.5, vid
     tracker.load_patterns(pattern_paths, pattern_ids, pattern_match_scale)
 
     # setup video capture
-    '''
-    cap = cv.VideoCapture(
-        "filesrc location=\"" + video_path + "\" ! decodebin ! videoconvert ! "
-        "videoscale ! video/x-raw, width=" + str(video_width) +
-        ", pixel-aspect-ratio=1/1 ! appsink"
-    )
-    '''
-    cap = cv.VideoCapture("v4l2src ! videoscale ! video/x-raw, width=" + str(video_width) +
-                          ", pixel-aspect-ratio=1/1 ! appsink")
-
+    cap = None
+    if gst_video_pipe is not None:
+        cap = cv.VideoCapture(gst_video_pipe)
+    elif video_path is not None:
+        cap = cv.VideoCapture(
+            "filesrc location=\"" + video_path + "\" ! decodebin ! videoconvert ! "
+            "videoscale ! video/x-raw, width=" + str(video_width) +
+            ", pixel-aspect-ratio=1/1 ! appsink"
+        )
+    else:
+        cap = cv.VideoCapture(
+            "v4l2src ! videoscale ! video/x-raw, width=" + str(video_width) +
+            ", pixel-aspect-ratio=1/1 ! appsink"
+        )
 
     if not cap.isOpened():
         print("Cannot capture test src. Exiting.")
@@ -111,13 +116,16 @@ def run_sender(ip, port, pattern_paths, video_path, pattern_match_scale=0.5, vid
         # send patterns
         sender.send_patterns(upd_patterns)
 
-        cv.imshow("CVtest", frame)
+        if visualize:
+            cv.imshow("Pattern Tracking", frame)
 
+        # eval stats
         elapsed_time = time.time() - start_time
         fps_collection.append(1.0 / elapsed_time)
         since_print += elapsed_time
         if since_print > 1.0:
-            #print("avg fps:", int(sum(fps_collection) / float(len(fps_collection))))
+            if verbose:
+                print("avg fps:", int(sum(fps_collection) / float(len(fps_collection))))
             fps_collection = []
             since_print = 0.0
 

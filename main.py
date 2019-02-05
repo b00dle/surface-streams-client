@@ -37,20 +37,21 @@ def run_udp_pipeline(send_port, protocol="jpeg"):
     #GObject.timeout_add_seconds(1, print_sender_stats)
     #pprint(dir(GObject))
     r = requests.post("http://"+SERVER_IP+":5000/api/clients", data={}, json={
-        "in-ip": MY_IP,
-        "in-port": send_port,
+        "ip": MY_IP,
+        "video_src_port": send_port,
         "name": "python-client-"+create_timestamp(),
-        "out-port": -1,
-        "streaming-protocol": protocol
+        "video_sink_port": -1,
+        "video_protocol": protocol,
+        "tuio_sink_port":-1
     })
     if r.status_code == 200:
         if r.headers['content-type'] == "application/json":
             data = r.json()
             print("### SUCCESS\n  > data", data)
             print("  > initializing receiver")
-            print("  > port", data["out-port"])
+            print("  > port", data["video_sink_port"])
             RECEIVER = (data["uuid"], UdpVideoReceiver(protocol=protocol))
-            RECEIVER[1].start(data["out-port"])
+            RECEIVER[1].start(data["video_sink_port"])
         else:
             print("### API error\n > expecting response json")
     else:
@@ -84,20 +85,21 @@ def run_realsense_pipeline(send_port, realsense_dir, protocol="jpeg"):
     SENDER.start()
 
     r = requests.post("http://" + SERVER_IP + ":5000/api/clients", data={}, json={
-        "in-ip": MY_IP,
-        "in-port": send_port,
+        "ip": MY_IP,
+        "video_src_port": send_port,
         "name": "python-client-" + create_timestamp(),
-        "out-port": -1,
-        "streaming-protocol": protocol
+        "video_sink_port": -1,
+        "video_protocol": protocol,
+        "tuio_sink_port": -1
     })
     if r.status_code == 200:
         if r.headers['content-type'] == "application/json":
             data = r.json()
             print("### SUCCESS\n  > data", data)
             print("  > initializing receiver")
-            print("  > port", data["out-port"])
+            print("  > port", data["video_sink_port"])
             RECEIVER = (data["uuid"], UdpVideoReceiver(protocol=protocol))
-            RECEIVER[1].start(data["out-port"])
+            RECEIVER[1].start(data["video_sink_port"])
         else:
             print("### API error\n > expecting response json")
     else:
@@ -174,19 +176,20 @@ def run_opencv_client(send_port, protocol="jpeg"):
     # GObject.timeout_add_seconds(1, print_sender_stats)
     # pprint(dir(GObject))
     r = requests.post("http://" + SERVER_IP + ":5000/api/clients", data={}, json={
-        "in-ip": MY_IP,
-        "in-port": send_port,
+        "ip": MY_IP,
+        "video_src_port": send_port,
         "name": "python-client-" + create_timestamp(),
-        "out-port": -1,
-        "streaming-protocol": protocol
+        "video_sink_port": -1,
+        "video_protocol": protocol,
+        "tuio_sink_port": -1
     })
     if r.status_code == 200:
         if r.headers['content-type'] == "application/json":
             data = r.json()
             print("### SUCCESS\n  > data", data)
             print("  > initializing receiver")
-            print("  > port", data["out-port"])
-            RECEIVER = (data["uuid"], CvReceiverSubProcess(port=data["out-port"], protocol=protocol))
+            print("  > port", data["video_sink_port"])
+            RECEIVER = (data["uuid"], CvReceiverSubProcess(port=data["video_sink_port"], protocol=protocol))
             RECEIVER[1].start()
         else:
             print("### API error\n > expecting response json")
@@ -299,32 +302,6 @@ def main():
     else:
         print("FAILURE")
         print("  > method '" + METHOD + "' not recognized.")
-
-
-def run_tracking_test(mode="img-match"):
-    from tracking import template_matching
-    from tracking import gst_cv_tracking
-    if mode == "img-match":
-        template_matching.test_match_img(
-            pattern_path='CLIENT_DATA/swamp2-128w.png',
-            frame_path='CLIENT_DATA/find-cards-480w.png'
-        )
-    elif mode == "video-match":
-        template_matching.test_match_video(
-            pattern_path='CLIENT_DATA/noble-128w.png',
-            video_path='CLIENT_DATA/track.mp4'
-        )
-    elif mode == "video-list-match":
-        gst_cv_tracking.run(
-            pattern_paths=[
-                'CLIENT_DATA/noble-128w.png',
-                'CLIENT_DATA/swamp1-128w.png',
-                'CLIENT_DATA/swamp2-128w.png'
-            ],
-            video_path='CLIENT_DATA/track.mp4'
-        )
-    else:
-        print("FAILURE: mode should be 'img-match', 'video-match' or 'video-list-match'")
 
 
 def run_osc_client():
