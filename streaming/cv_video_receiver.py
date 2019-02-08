@@ -3,17 +3,20 @@ import streaming
 import os
 from streaming.subprocess_sender import SubProcessWrapper
 
+
 class CvVideoReceiver:
-    def __init__(self, port, protocol="jpeg"):
+    def __init__(self, port, protocol="jpeg", width=-1):
         self._protocol = protocol
         self._port = port
         self._capture = None
         self._pipeline_description = ""
         self._capture_finished = False
+        self._width = width
         self._init_capture()
 
     def _init_capture(self):
         self._pipeline_description = "udpsrc port="+str(self._port) + " ! "
+
         if self._protocol == "jpeg":
             self._pipeline_description += streaming.JPEG_CAPS + " ! queue ! "
             self._pipeline_description += "rtpgstdepay ! "
@@ -38,8 +41,16 @@ class CvVideoReceiver:
             self._pipeline_description += streaming.H265_CAPS + " ! queue ! "
             self._pipeline_description += "rtph265depay ! "
             self._pipeline_description += "avdec_h264 ! "
-        self._pipeline_description += "videoconvert ! appsink"
+
+        if self._width > 0:
+            self._pipeline_description += "videoconvert ! videoscale ! video/x-raw, width=" + str(self._width) + \
+                ", pixel-aspect-ratio=1/1 ! appsink sync=false"
+        else:
+            self._pipeline_description += "videoconvert ! appsink sync=false"
         self._capture = cv2.VideoCapture(self._pipeline_description)
+
+    def release(self):
+        self._capture.release()
 
     def capture(self):
         """ returns the currently captured frame or None if not capturing. """

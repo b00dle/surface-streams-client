@@ -1,5 +1,6 @@
 import subprocess
-
+import os
+import signal
 
 class SubProcessWrapper(object):
     """
@@ -26,11 +27,11 @@ class SubProcessWrapper(object):
     def cleanup(self):
         pass
 
-    def start(self):
+    def start(self, stdout=subprocess.PIPE, shell=True, preexc_fn=os.setsid):
         """
         Starts subprocess with process_args set.
         See also: _set_process_args, stop
-        :return:
+        :return: process ID
         """
         if self._running or len(self._process_args) == 0:
             return
@@ -39,7 +40,14 @@ class SubProcessWrapper(object):
             cmd_str += " " + arg
         print("Running:", cmd_str)
         self._subprocess = subprocess.Popen(self._process_args)
+        """
+            self._process_args,
+            stdout=stdout, shell=shell, preexec_fn=preexc_fn
+        )
+        """
+        print("  > PID", self._subprocess.pid)
         self._running = True
+        return self._subprocess.pid
 
     def stop(self):
         """
@@ -49,9 +57,19 @@ class SubProcessWrapper(object):
         """
         if not self._running:
             return
-        self._subprocess.terminate()
+        os.kill(self._subprocess.pid, signal.SIGUSR1)
+        #self._subprocess.terminate()
         self.return_code = self._subprocess.wait()
         self._running = False
+
+    def is_running(self):
+        return self._running
+
+    def wait(self):
+        return self._subprocess.wait()
+
+    def join(self):
+        self._subprocess.join()
 
 
 class RealsenseSender(SubProcessWrapper):

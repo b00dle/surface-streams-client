@@ -200,7 +200,7 @@ def run_receiver(ip, port, w, h, frame_port=None):
                 frame = cv.warpPerspective(img, M, (w,h), frame, borderMode=cv.BORDER_TRANSPARENT)
 
         cv.imshow("FRAME", frame)
-
+        #print("whoooop")
         key_pressed = cv.waitKey(1) & 0xFF
         if key_pressed == ord('q'):
             break

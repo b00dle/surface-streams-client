@@ -1,9 +1,8 @@
 import sys
-from textwrap import fill
-
-'''
 import requests
 from datetime import datetime
+'''
+import requests
 import gi
 import cv2
 gi.require_version("Gst", "1.0")
@@ -12,6 +11,7 @@ gi.require_version("GstVideo", "1.0")
 from gi.repository import Gst, GObject, Gtk, Gdk, GdkX11
 '''
 
+
 SENDER = None
 RECEIVER = None
 MY_IP = "0.0.0.0"
@@ -19,10 +19,111 @@ SERVER_IP = "0.0.0.0"
 METHOD = "filesrc"
 REALSENSE_DIR = "./"
 PROTOCOL = "jpeg"
+TERMINATE = False
+
+import signal
+
+def foo():
+    print("foo")
+
+# shutdown procedure
+signal.signal(signal.SIGTERM, foo)
 
 
 def create_timestamp():
     return datetime.now().strftime(("%Y-%m-%d %H:%M:%S"))
+
+
+def run_surface_streams_2_0(send_port, protocol="jpeg"):
+    import gi
+    import os
+    import signal
+    import time
+    import multiprocessing
+    gi.require_version("Gst", "1.0")
+    gi.require_version("Gtk", "3.0")
+    gi.require_version("GstVideo", "1.0")
+    from gi.repository import Gst, GObject, Gtk, Gdk, GdkX11
+    from streaming.udp_video_sender import UdpVideoSender
+    from streaming.udp_video_receiver import UdpVideoReceiver
+    from datetime import datetime
+    from streaming import cv_tracking_streamer
+    global SENDER, RECEIVER
+    from streaming.cv_video_receiver import CvReceiverSubProcess
+    from processes.surface_streams_receiver import RecvSubProcess
+    from processes.surface_streams_tracker import TrackSubProcess
+
+    #GObject.threads_init()
+    #Gst.init(None)
+
+    """
+    SENDER = UdpVideoSender(protocol=protocol)
+    SENDER.set_port(send_port)
+    SENDER.set_host(SERVER_IP)
+    """
+
+    r = requests.post("http://" + SERVER_IP + ":5000/api/clients", data={}, json={
+        "ip": MY_IP,
+        "video_src_port": send_port,
+        "name": "python-client-" + create_timestamp(),
+        "video_sink_port": -1,
+        "video_protocol": protocol,
+        "tuio_sink_port": -1
+    })
+    if r.status_code == 200:
+        if r.headers['content-type'] == "application/json":
+            data = r.json()
+            print("### SUCCESS\n  > data", data)
+            print("  > initializing receiver")
+            print("  > port", data["video_sink_port"])
+
+            SENDER = TrackSubProcess()
+            send_pid = SENDER.start()
+
+            recv = RecvSubProcess(
+                frame_port=data["video_sink_port"], tuio_port=data["tuio_sink_port"],
+                server_ip=SERVER_IP, ip=MY_IP, width=320, video_protocol=data["video_protocol"]
+            )
+            RECEIVER = (data["uuid"], recv)
+            recv_pid = RECEIVER[1].start()
+            #os.killpg(os.getpgid(recv_pid), signal.SIGTERM)
+
+            ret = SENDER.wait()
+            ret = RECEIVER[1].wait()
+            shutdown_surface_streams_2_0()
+        else:
+            print("### API error\n > expecting response json")
+    else:
+        print("### HTTP error\n  > code", r.status_code)
+        print("  > reason", r.reason)
+
+    #Gtk.main()
+
+
+def shutdown_surface_streams_2_0():
+    #global RECEIVER
+    #if RECEIVER is not None:
+    #SENDER.cleanup()
+    global SENDER, RECEIVER, TERMINATE
+    url = "http://"+SERVER_IP+":5000/api/clients/" + RECEIVER[0]
+    r = requests.delete(url)
+    if r.status_code == 200:
+        print("### SUCCESS\n  > CLEANUP DONE")
+    else:
+        print("### HTTP error\n  > code", r.status_code)
+        print("  > reason", r.reason)
+
+    try:
+        SENDER.stop()
+    except OSError:
+        print("Sender seems to be already closed.")
+
+    try:
+        RECEIVER[1].stop()
+    except OSError:
+        print("Receiver seems to be already closed.")
+
+    #TERMINATE = True
 
 
 def run_udp_pipeline(send_port, protocol="jpeg"):
@@ -248,7 +349,7 @@ def fill_global_vars():
     # METHOD = "realsense"
     # METHOD = "filesrc"
     # METHOD = "imagetest"
-    METHOD = "cvtest"
+    METHOD = "surface-streams-2.0"
     REALSENSE_DIR = "/home/companion/surface-streams/"
     PROTOCOL = "jpeg"
 
@@ -299,6 +400,9 @@ def main():
         #run_opencv_client(5001, PROTOCOL)
         run_opencv_client(5003, PROTOCOL)
         shutdown_cv_pipeline()
+    elif METHOD == "surface-streams-2.0":
+        run_surface_streams_2_0(5002, PROTOCOL)
+        #shutdown_surface_streams_2_0()
     else:
         print("FAILURE")
         print("  > method '" + METHOD + "' not recognized.")
@@ -351,9 +455,9 @@ def run_cv_tracking_receiver(ip="127.0.0.1", tuio_port=5005, frame_port=None):
 
 if __name__ == "__main__":
     # gst-launch-1.0 filesrc location="/home/companion/Videos/green-sample.mp4" ! decodebin ! videoconvert ! videoscale ! video/x-raw, width=320, pixel-aspect-ratio=1/1 ! jpegenc ! rtpgstpay ! udpsink port=5002
-    run_cv_tracking_sender()
+    #run_cv_tracking_sender()
     #run_cv_tracking_receiver(frame_port=None)
     #run_osc_server()
     #run_osc_client()
     #run_tracking_test("video-list-match")
-    #main()
+    main()

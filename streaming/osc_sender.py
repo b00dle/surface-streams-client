@@ -51,7 +51,7 @@ class CvPatternSender(OscSender):
             self.send_pattern(p)
 
 
-def run_pattern_sender(ip="127.0.0.1", port=5005):
+def run_pattern_sender(ip="0.0.0.0", port=5001):
     from streaming.osc_pattern import OscPatternBnd, OscPatternSym
     import random
     import uuid

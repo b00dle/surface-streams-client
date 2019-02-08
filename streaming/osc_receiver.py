@@ -99,7 +99,7 @@ class CvPatternReceiver(OscReceiver):
         return res
 
 
-def run_pattern_receiver(ip="127.0.0.1", port=5005):
+def run_pattern_receiver(ip="0.0.0.0", port=5004):
     server = CvPatternReceiver(ip, port)
     server.start()
 
