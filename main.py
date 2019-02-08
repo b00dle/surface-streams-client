@@ -1,66 +1,26 @@
 import sys
 import requests
 from datetime import datetime
-'''
-import requests
-import gi
-import cv2
-gi.require_version("Gst", "1.0")
-gi.require_version("Gtk", "3.0")
-gi.require_version("GstVideo", "1.0")
-from gi.repository import Gst, GObject, Gtk, Gdk, GdkX11
-'''
 
-
-SENDER = None
-RECEIVER = None
+VIDEO_STREAMER = None
+OBJECT_STREAMER = None
+STREAM_RECEIVER = None
 MY_IP = "0.0.0.0"
 SERVER_IP = "0.0.0.0"
 METHOD = "filesrc"
 REALSENSE_DIR = "./"
 PROTOCOL = "jpeg"
-TERMINATE = False
-
-import signal
-
-def foo():
-    print("foo")
-
-# shutdown procedure
-signal.signal(signal.SIGTERM, foo)
 
 
 def create_timestamp():
     return datetime.now().strftime(("%Y-%m-%d %H:%M:%S"))
 
 
-def run_surface_streams_2_0(send_port, protocol="jpeg"):
-    import gi
-    import os
-    import signal
-    import time
-    import multiprocessing
-    gi.require_version("Gst", "1.0")
-    gi.require_version("Gtk", "3.0")
-    gi.require_version("GstVideo", "1.0")
-    from gi.repository import Gst, GObject, Gtk, Gdk, GdkX11
-    from streaming.udp_video_sender import UdpVideoSender
-    from streaming.udp_video_receiver import UdpVideoReceiver
-    from datetime import datetime
-    from streaming import cv_tracking_streamer
-    global SENDER, RECEIVER
-    from streaming.cv_video_receiver import CvReceiverSubProcess
+def run_surface_streams(send_port, protocol="jpeg"):
+    global VIDEO_STREAMER, OBJECT_STREAMER, STREAM_RECEIVER
     from processes.surface_streams_receiver import RecvSubProcess
     from processes.surface_streams_tracker import TrackSubProcess
-
-    #GObject.threads_init()
-    #Gst.init(None)
-
-    """
-    SENDER = UdpVideoSender(protocol=protocol)
-    SENDER.set_port(send_port)
-    SENDER.set_host(SERVER_IP)
-    """
+    from processes.surface_streams_web_cam import WebCamSenderSubProcess
 
     r = requests.post("http://" + SERVER_IP + ":5000/api/clients", data={}, json={
         "ip": MY_IP,
@@ -77,35 +37,43 @@ def run_surface_streams_2_0(send_port, protocol="jpeg"):
             print("  > initializing receiver")
             print("  > port", data["video_sink_port"])
 
-            SENDER = TrackSubProcess()
-            send_pid = SENDER.start()
+            VIDEO_STREAMER = WebCamSenderSubProcess(
+                server_port=send_port, my_port=6666,
+                monitor=False
+            )
+            send_pid = VIDEO_STREAMER.start()
+
+            OBJECT_STREAMER = TrackSubProcess()
+            track_pid = OBJECT_STREAMER.start()
 
             recv = RecvSubProcess(
                 frame_port=data["video_sink_port"], tuio_port=data["tuio_sink_port"],
                 server_ip=SERVER_IP, ip=MY_IP, width=320, video_protocol=data["video_protocol"]
             )
-            RECEIVER = (data["uuid"], recv)
-            recv_pid = RECEIVER[1].start()
-            #os.killpg(os.getpgid(recv_pid), signal.SIGTERM)
+            STREAM_RECEIVER = (data["uuid"], recv)
+            recv_pid = STREAM_RECEIVER[1].start()
 
-            ret = SENDER.wait()
-            ret = RECEIVER[1].wait()
-            shutdown_surface_streams_2_0()
+            ret = OBJECT_STREAMER.wait()
+            print("SurfaceStreams Object Streamer Process finished with exit code ", ret)
+
+            ret = STREAM_RECEIVER[1].wait()
+            print("SurfaceStreams Stream Receiver Process finished with exit code ", ret)
+
+            #ret = VIDEO_STREAMER.wait()
+            #print("SurfaceStreams Video Streamer Process finished with exit code ", ret)
+
+            shutdown_surface_streams()
         else:
             print("### API error\n > expecting response json")
     else:
         print("### HTTP error\n  > code", r.status_code)
         print("  > reason", r.reason)
 
-    #Gtk.main()
 
+def shutdown_surface_streams():
+    global VIDEO_STREAMER, OBJECT_STREAMER, STREAM_RECEIVER
 
-def shutdown_surface_streams_2_0():
-    #global RECEIVER
-    #if RECEIVER is not None:
-    #SENDER.cleanup()
-    global SENDER, RECEIVER, TERMINATE
-    url = "http://"+SERVER_IP+":5000/api/clients/" + RECEIVER[0]
+    url = "http://" + SERVER_IP +":5000/api/clients/" + STREAM_RECEIVER[0]
     r = requests.delete(url)
     if r.status_code == 200:
         print("### SUCCESS\n  > CLEANUP DONE")
@@ -114,27 +82,30 @@ def shutdown_surface_streams_2_0():
         print("  > reason", r.reason)
 
     try:
-        SENDER.stop()
+        OBJECT_STREAMER.stop()
     except OSError:
-        print("Sender seems to be already closed.")
+        print("Object Streamer seems to be already closed.")
 
     try:
-        RECEIVER[1].stop()
+        STREAM_RECEIVER[1].stop()
     except OSError:
         print("Receiver seems to be already closed.")
 
-    #TERMINATE = True
+    try:
+        VIDEO_STREAMER.stop()
+    except OSError:
+        print("Sender seems to be already closed.")
 
 
 def run_udp_pipeline(send_port, protocol="jpeg"):
-    global SENDER, RECEIVER
+    global VIDEO_STREAMER, STREAM_RECEIVER
     from streaming.udp_video_sender import UdpVideoSender
     from streaming.udp_video_receiver import UdpVideoReceiver
     GObject.threads_init()
     Gst.init(None)
-    SENDER = UdpVideoSender(protocol=protocol)
-    SENDER.set_port(send_port)
-    SENDER.set_host(SERVER_IP)
+    VIDEO_STREAMER = UdpVideoSender(protocol=protocol)
+    VIDEO_STREAMER.set_port(send_port)
+    VIDEO_STREAMER.set_host(SERVER_IP)
     #GObject.timeout_add_seconds(1, print_sender_stats)
     #pprint(dir(GObject))
     r = requests.post("http://"+SERVER_IP+":5000/api/clients", data={}, json={
@@ -151,8 +122,8 @@ def run_udp_pipeline(send_port, protocol="jpeg"):
             print("### SUCCESS\n  > data", data)
             print("  > initializing receiver")
             print("  > port", data["video_sink_port"])
-            RECEIVER = (data["uuid"], UdpVideoReceiver(protocol=protocol))
-            RECEIVER[1].start(data["video_sink_port"])
+            STREAM_RECEIVER = (data["uuid"], UdpVideoReceiver(protocol=protocol))
+            STREAM_RECEIVER[1].start(data["video_sink_port"])
         else:
             print("### API error\n > expecting response json")
     else:
@@ -163,9 +134,9 @@ def run_udp_pipeline(send_port, protocol="jpeg"):
 
 
 def shutdown_udp_pipeline():
-    if RECEIVER is not None:
-        SENDER.cleanup()
-        url = "http://"+SERVER_IP+":5000/api/clients/" + RECEIVER[0]
+    if STREAM_RECEIVER is not None:
+        VIDEO_STREAMER.cleanup()
+        url = "http://" + SERVER_IP +":5000/api/clients/" + STREAM_RECEIVER[0]
         r = requests.delete(url)
         if r.status_code == 200:
             print("### SUCCESS\n  > CLEANUP DONE")
@@ -175,15 +146,15 @@ def shutdown_udp_pipeline():
 
 
 def run_realsense_pipeline(send_port, realsense_dir, protocol="jpeg"):
-    global SENDER, RECEIVER
+    global VIDEO_STREAMER, STREAM_RECEIVER
     from streaming.subprocess_sender import RealsenseSender
     from streaming.udp_video_receiver import UdpVideoReceiver
     GObject.threads_init()
     Gst.init(None)
-    SENDER = RealsenseSender(realsense_dir=realsense_dir, protocol=protocol)
-    SENDER.set_port(send_port)
-    SENDER.set_host(SERVER_IP)
-    SENDER.start()
+    VIDEO_STREAMER = RealsenseSender(realsense_dir=realsense_dir, protocol=protocol)
+    VIDEO_STREAMER.set_port(send_port)
+    VIDEO_STREAMER.set_host(SERVER_IP)
+    VIDEO_STREAMER.start()
 
     r = requests.post("http://" + SERVER_IP + ":5000/api/clients", data={}, json={
         "ip": MY_IP,
@@ -199,8 +170,8 @@ def run_realsense_pipeline(send_port, realsense_dir, protocol="jpeg"):
             print("### SUCCESS\n  > data", data)
             print("  > initializing receiver")
             print("  > port", data["video_sink_port"])
-            RECEIVER = (data["uuid"], UdpVideoReceiver(protocol=protocol))
-            RECEIVER[1].start(data["video_sink_port"])
+            STREAM_RECEIVER = (data["uuid"], UdpVideoReceiver(protocol=protocol))
+            STREAM_RECEIVER[1].start(data["video_sink_port"])
         else:
             print("### API error\n > expecting response json")
     else:
@@ -212,9 +183,9 @@ def run_realsense_pipeline(send_port, realsense_dir, protocol="jpeg"):
 
 def shutdown_realsense_pipeline():
     shutdown_udp_pipeline()
-    global SENDER
-    SENDER.stop()
-    print("### Realsense process finished with code", SENDER.return_code)
+    global VIDEO_STREAMER
+    VIDEO_STREAMER.stop()
+    print("### Realsense process finished with code", VIDEO_STREAMER.return_code)
 
 
 def run_image_test():
@@ -266,14 +237,14 @@ def run_image_test():
 
 
 def run_opencv_client(send_port, protocol="jpeg"):
-    global SENDER, RECEIVER
+    global VIDEO_STREAMER, STREAM_RECEIVER
     from streaming.udp_video_sender import UdpVideoSender
     from streaming.cv_video_receiver import CvReceiverSubProcess
     GObject.threads_init()
     Gst.init(None)
-    SENDER = UdpVideoSender(protocol=protocol)
-    SENDER.set_port(send_port)
-    SENDER.set_host(SERVER_IP)
+    VIDEO_STREAMER = UdpVideoSender(protocol=protocol)
+    VIDEO_STREAMER.set_port(send_port)
+    VIDEO_STREAMER.set_host(SERVER_IP)
     # GObject.timeout_add_seconds(1, print_sender_stats)
     # pprint(dir(GObject))
     r = requests.post("http://" + SERVER_IP + ":5000/api/clients", data={}, json={
@@ -290,8 +261,8 @@ def run_opencv_client(send_port, protocol="jpeg"):
             print("### SUCCESS\n  > data", data)
             print("  > initializing receiver")
             print("  > port", data["video_sink_port"])
-            RECEIVER = (data["uuid"], CvReceiverSubProcess(port=data["video_sink_port"], protocol=protocol))
-            RECEIVER[1].start()
+            STREAM_RECEIVER = (data["uuid"], CvReceiverSubProcess(port=data["video_sink_port"], protocol=protocol))
+            STREAM_RECEIVER[1].start()
         else:
             print("### API error\n > expecting response json")
     else:
@@ -303,9 +274,9 @@ def run_opencv_client(send_port, protocol="jpeg"):
 
 def shutdown_cv_pipeline():
     shutdown_udp_pipeline()
-    global RECEIVER
-    RECEIVER[1].stop()
-    print("### CvVideoCaptureSubProcess finished with code", RECEIVER[1].return_code)
+    global STREAM_RECEIVER
+    STREAM_RECEIVER[1].stop()
+    print("### CvVideoCaptureSubProcess finished with code", STREAM_RECEIVER[1].return_code)
 
 
 def run_cv_test():
@@ -344,7 +315,7 @@ def run_asynchoro_test():
 
 
 def fill_global_vars():
-    global SENDER, RECEIVER, MY_IP, SERVER_IP, METHOD, REALSENSE_DIR, PROTOCOL
+    global VIDEO_STREAMER, STREAM_RECEIVER, MY_IP, SERVER_IP, METHOD, REALSENSE_DIR, PROTOCOL
 
     # METHOD = "realsense"
     # METHOD = "filesrc"
@@ -379,7 +350,7 @@ def fill_global_vars():
 
 
 def main():
-    global SENDER, RECEIVER, MY_IP, SERVER_IP, METHOD, REALSENSE_DIR, PROTOCOL
+    global VIDEO_STREAMER, STREAM_RECEIVER, MY_IP, SERVER_IP, METHOD, REALSENSE_DIR, PROTOCOL
 
     fill_global_vars()
 
@@ -401,7 +372,7 @@ def main():
         run_opencv_client(5003, PROTOCOL)
         shutdown_cv_pipeline()
     elif METHOD == "surface-streams-2.0":
-        run_surface_streams_2_0(5002, PROTOCOL)
+        run_surface_streams(5002, PROTOCOL)
         #shutdown_surface_streams_2_0()
     else:
         print("FAILURE")

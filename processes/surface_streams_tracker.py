@@ -37,14 +37,6 @@ if __name__ == "__main__":
     FRAME_PORT = 6666
     MATCHING_WIDTH = 640
     PROTOCOL = "jpeg"
-    TERMINATE = False
-
-    def sigterm_handler(sig, frame):
-        global TERMINATE
-        if sig == signal.SIGUSR1 and not TERMINATE:
-            TERMINATE = True
-
-    signal.signal(signal.SIGUSR1, sigterm_handler)
 
     # initialize osc sender
     tuio_sender = CvPatternSender(SERVER_IP, SERVER_TUIO_PORT)
@@ -69,7 +61,7 @@ if __name__ == "__main__":
 
     print_config = True
     visualize = True
-    while cap.is_capturing() and not TERMINATE:
+    while cap.is_capturing():
         frame = cap.capture()
         h, w, c = frame.shape
 
@@ -99,13 +91,12 @@ if __name__ == "__main__":
         tuio_sender.send_patterns(upd_patterns)
 
         if visualize:
-            cv.imshow("Pattern Tracking", frame)
+            cv.imshow("SurfaceStreams Tracker", frame)
 
         key_pressed = cv.waitKey(1) & 0xFF
-        if key_pressed == ord('q') or TERMINATE:
+        if key_pressed == ord('q'):
             break
 
     # cleanup
-    print("TERMINATING PROCESS")
     cap.release()
     cv.destroyAllWindows()

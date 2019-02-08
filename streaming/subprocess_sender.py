@@ -27,7 +27,7 @@ class SubProcessWrapper(object):
     def cleanup(self):
         pass
 
-    def start(self, stdout=subprocess.PIPE, shell=True, preexc_fn=os.setsid):
+    def start(self):
         """
         Starts subprocess with process_args set.
         See also: _set_process_args, stop
@@ -40,11 +40,6 @@ class SubProcessWrapper(object):
             cmd_str += " " + arg
         print("Running:", cmd_str)
         self._subprocess = subprocess.Popen(self._process_args)
-        """
-            self._process_args,
-            stdout=stdout, shell=shell, preexec_fn=preexc_fn
-        )
-        """
         print("  > PID", self._subprocess.pid)
         self._running = True
         return self._subprocess.pid
@@ -57,8 +52,7 @@ class SubProcessWrapper(object):
         """
         if not self._running:
             return
-        os.kill(self._subprocess.pid, signal.SIGUSR1)
-        #self._subprocess.terminate()
+        self._subprocess.terminate()
         self.return_code = self._subprocess.wait()
         self._running = False
 

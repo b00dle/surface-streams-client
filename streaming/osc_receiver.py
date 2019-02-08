@@ -14,11 +14,11 @@ class OscReceiver(object):
         self._server_process = multiprocessing.Process(target=self._server.serve_forever)
 
     def start(self):
-        print("Serving on {}".format(self._server.server_address))
+        print("Serving OSC on {}".format(self._server.server_address))
         self._server_process.start()
 
     def terminate(self):
-        print("Server terminated.")
+        print("Stopped Serving OSC on {}".format(self._server.server_address))
         self._server_process.terminate()
 
 

@@ -63,17 +63,6 @@ if __name__ == "__main__":
     DOWNLOAD_FOLDER = "CLIENT_DATA/"
     W = 640
     H = 480
-    TERMINATE = False
-
-    def sigterm_handler(sig, frame):
-        global TERMINATE
-        if sig == signal.SIGUSR1 and not TERMINATE:
-            TERMINATE = True
-    signal.signal(signal.SIGUSR1, sigterm_handler)
-
-    #while not TERMINATE:
-    #    print("running")
-    #    time.sleep(1)
 
     if len(sys.argv) > 1:
         arg_i = 1
@@ -112,17 +101,13 @@ if __name__ == "__main__":
     images = {}
     img_paths = []
 
-    print("prior to init")
-
     cap = CvVideoReceiver(port=FRAME_PORT, protocol=PROTOCOL)
-
-    print("after init")
 
     frame = None
     if cap is None:
         frame = np.zeros((H, W, 3), np.uint8)
 
-    while cap.is_capturing() and not TERMINATE:
+    while cap.is_capturing():
         update_log = tuio_server.update_patterns()
 
         if cap is not None:
@@ -165,10 +150,9 @@ if __name__ == "__main__":
         cv.imshow("SurfaceStreams Receiver", frame)
 
         key_pressed = cv.waitKey(1) & 0xFF
-        if key_pressed == ord('q') or TERMINATE:
+        if key_pressed == ord('q'):
             break
 
-    print("TERMINATING PROCESS")
     # cleanup
     cap.release()
     cv.destroyAllWindows()
