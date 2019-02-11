@@ -45,6 +45,29 @@ class TrackSubProcess(SubProcessWrapper):
         self._set_process_args(args)
 
 
+def load_tracking_config(pattern_paths, pattern_match_scale, tracker):
+    # initialize osc sender
+    osc_patterns = {}
+    for i in range(0, len(pattern_paths)):
+        p = OscPattern()
+        osc_patterns[p.get_s_id()] = p
+
+    # upload images & set uuids
+    pattern_ids = []
+    p_idx = 0
+    for p in osc_patterns.values():
+        pattern_ids.append(p.get_s_id())
+        uuid = api_helper.upload_image(pattern_paths[p_idx])
+        p.set_uuid(uuid)
+        p_idx += 1
+
+    tracker.patterns = {}
+    tracker.load_patterns(pattern_paths, pattern_ids, pattern_match_scale)
+
+    return osc_patterns, pattern_ids
+
+
+
 if __name__ == "__main__":
     PATTERN_PATHS = []
     PATTERN_MATCH_SCALE = 0.13
@@ -55,6 +78,7 @@ if __name__ == "__main__":
     PROTOCOL = "jpeg"
     PATTERNS_CONFIG = ""
 
+    # extract run args
     if len(sys.argv) > 1:
         arg_i = 1
         while arg_i < len(sys.argv):
@@ -89,25 +113,15 @@ if __name__ == "__main__":
 
     # initialize osc sender
     tuio_sender = CvPatternSender(SERVER_IP, SERVER_TUIO_PORT)
-    osc_patterns = {}
-    for i in range(0, len(PATTERN_PATHS)):
-        p = OscPattern()
-        osc_patterns[p.get_s_id()] = p
 
-    # upload images & set uuids
-    pattern_ids = []
-    p_idx = 0
-    for p in osc_patterns.values():
-        pattern_ids.append(p.get_s_id())
-        uuid = api_helper.upload_image(PATTERN_PATHS[p_idx])
-        p.set_uuid(uuid)
-        p_idx += 1
-
+    # initialize tracking
     tracker = GstCvTracking()
-    tracker.load_patterns(PATTERN_PATHS, pattern_ids, PATTERN_MATCH_SCALE)
+    osc_patterns, pattern_ids = load_tracking_config(PATTERN_PATHS, PATTERN_MATCH_SCALE, tracker)
 
+    # initialize video frame receiver
     cap = CvVideoReceiver(port=FRAME_PORT, protocol=PROTOCOL, width=MATCHING_WIDTH)
 
+    # start main processing loop
     print_config = True
     visualize = True
     i = 0
@@ -152,6 +166,12 @@ if __name__ == "__main__":
         key_pressed = cv.waitKey(1) & 0xFF
         if key_pressed == ord('q'):
             break
+        elif key_pressed == ord('r'):
+            if os.path.isfile(PATTERNS_CONFIG):
+                PATTERN_PATHS = [line.rstrip('\n') for line in open(PATTERNS_CONFIG)]
+                print("Refreshing patterns")
+                print("  > ", PATTERN_PATHS)
+                osc_patterns, pattern_ids = load_tracking_config(PATTERN_PATHS, PATTERN_MATCH_SCALE, tracker)
 
     # cleanup
     cap.release()
