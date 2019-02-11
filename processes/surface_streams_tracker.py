@@ -29,7 +29,7 @@ class TrackSubProcess(SubProcessWrapper):
 
 if __name__ == "__main__":
     PATTERN_PATHS = [
-        "/home/basti/Documents/studium/master/surface-streams-client/CLIENT_DATA/207.jpg"
+        "/home/basti/Documents/studium/master/surface-streams-client/CLIENT_DATA/noble-720w.png"
     ]
     PATTERN_MATCH_SCALE = 0.13
     SERVER_IP = "0.0.0.0"
