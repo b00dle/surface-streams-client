@@ -2,6 +2,7 @@ import numpy as np
 import cv2 as cv
 import time
 import math
+import threading
 
 from scipy.spatial import distance as dist
 from tracking.template_matching import SiftPattern, FlannMatcher
@@ -37,6 +38,68 @@ def order_points(pts):
     # return the coordinates in top-left, top-right,
     # bottom-right, and bottom-left order
     return np.array([tr, tl, bl, br], dtype="float32")
+
+
+class GstCvTrackingThread(threading.Thread):
+    def __init__(self, image=None, patterns=[]):
+        super().__init__()
+        self._flann = FlannMatcher()
+        self._frame_pattern = SiftPattern("THE-FRAME")
+        self.results = []
+        self.image = image
+        self.patterns = patterns
+
+    def vec_length(self, v):
+        return math.sqrt(sum([v[i]*v[i] for i in range(0,len(v))]))
+
+    def get_rot(self, M):
+        rad = -math.atan2(M[0][1], M[0][0])
+        deg = math.degrees(rad)
+        #print("========")
+        #print(rad)
+        #print(deg)
+        return deg
+
+    def get_trans(self, M):
+        return [M[0][2], M[1][2]]
+
+    def get_scale(self, M):
+        s_x = np.sign(M[0][0]) * self.vec_length([M[0][0], M[0][1]])
+        s_y = np.sign(M[1][1]) * self.vec_length([M[1][0], M[1][1]])
+        return [s_x, s_y]
+
+    def decompose_mat(self, M):
+        return {"T": self.get_trans(M), "R": self.get_rot(M), "S": self.get_scale(M)}
+
+    def run(self):
+        self.results = []
+        if self.image is None:
+            return
+        self._frame_pattern.set_image(self.image)
+        h, w, c = self.image.shape
+        for pattern in self.patterns:
+            good = self._flann.knn_match(pattern, self._frame_pattern)
+            if len(good) >= MIN_MATCH_COUNT:
+                M, mask = self._flann.find_homography(pattern, self._frame_pattern, good)
+                pts = pattern.get_shape_points()
+                dst = cv.perspectiveTransform(pts, M)
+                rect = cv.minAreaRect(dst)
+                # rotation angle of area rect
+                # doesn't take into account the pattern orientation
+                angle = self.get_rot(M) + 180
+                width = rect[1][0]
+                height = rect[1][1]
+                if width < height:
+                    t = width
+                    width = height
+                    height = t
+                    # angle = 90 + angle
+                bnd = OscPatternBnd(
+                    rect[0][0], rect[0][1],  # pos
+                    angle,  # rotation
+                    width, height  # size
+                ).normalized(h, h)
+                self.results.append(CvTrackingResult(pattern.get_id(), bnd))
 
 
 class GstCvTracking(object):
@@ -99,6 +162,27 @@ class GstCvTracking(object):
                     width, height            # size
                 ).normalized(h, h)
                 res.append(CvTrackingResult(pattern.get_id(), bnd))
+        return res
+
+    def track_concurrent(self, image, num_threads=4):
+        threads = []
+        patterns = [[] for i in range(0, num_threads)]
+        temp = [p for p in self.patterns.values()]
+        for i in range(0, len(temp)):
+            thread_id = i % num_threads
+            patterns[thread_id].append(temp[i])
+        for p in patterns:
+            if len(p) > 0:
+                thread = GstCvTrackingThread(image=image, patterns=p)
+                thread.patterns = p
+                thread.image = image
+                thread.start()
+                threads.append(thread)
+        res = []
+        for thread in threads:
+            thread.join()
+            if len(thread.results) > 0:
+                res.extend(thread.results)
         return res
 
     def load_pattern(self, path, pattern_id=None, scale=1.0):

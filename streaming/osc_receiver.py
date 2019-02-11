@@ -44,10 +44,12 @@ class CvPatternDispatcher(dispatcher.Dispatcher):
 
 
 class CvPatternReceiver(OscReceiver):
-    def __init__(self, ip, port):
+    def __init__(self, ip, port, pattern_timeout=1.0):
         self._dispatcher = CvPatternDispatcher()
         super().__init__(ip, port, self._dispatcher)
         self._patterns = {}
+        self._pattern_update_times = {}
+        self._pattern_timeout = pattern_timeout
 
     def update_patterns(self):
         """ Updates all patterns given the unprocessed messages
@@ -60,6 +62,7 @@ class CvPatternReceiver(OscReceiver):
                 "sym": [num1, ..., numY]
             }"""
         update_log = {"bnd": [], "sym": []}
+        time_now = time.time()
         # extract bnd updates
         while not self._dispatcher.bnd_queue.empty():
             bnd_msg = self._dispatcher.bnd_queue.get()
@@ -68,6 +71,7 @@ class CvPatternReceiver(OscReceiver):
             if s_id not in self._patterns.keys():
                 self._patterns[s_id] = OscPattern(s_id=s_id, u_id=u_id)
             self._patterns[s_id].set_bnd(bnd_msg["bnd"])
+            self._pattern_update_times[s_id] = time_now
             if s_id not in update_log["bnd"]:
                 update_log["bnd"].append(s_id)
         # extract sym updates
@@ -77,10 +81,20 @@ class CvPatternReceiver(OscReceiver):
             u_id = sym_msg["u_id"]
             if s_id not in self._patterns.keys():
                 self._patterns[s_id] = OscPattern(s_id=s_id, u_id=u_id)
+                self._pattern_update_times[s_id] = time_now
             if self._patterns[s_id].get_sym() != sym_msg["sym"]:
                 self._patterns[s_id].set_sym(sym_msg["sym"])
+                self._pattern_update_times[s_id] = time_now
                 if s_id not in update_log["sym"]:
                     update_log["sym"].append(s_id)
+        # remove expired patterns:
+        if self._pattern_timeout > 0.0:
+            pattern_keys = [p_id for p_id in self._patterns.keys()]
+            for p_id in pattern_keys:
+                last_updated = self._pattern_update_times[p_id]
+                if time_now - last_updated > self._pattern_timeout:
+                    del self._patterns[p_id]
+                    del self._pattern_update_times[p_id]
         return update_log
 
     def get_pattern(self, s_id):

@@ -71,7 +71,7 @@ if __name__ == "__main__":
             if arg == "-frame_port":
                 arg_i += 1
                 FRAME_PORT = int(sys.argv[arg_i])
-            if arg == "-tuio_port":
+            elif arg == "-tuio_port":
                 arg_i += 1
                 TUIO_PORT = int(sys.argv[arg_i])
             elif arg == "-video_protocol":
@@ -95,7 +95,7 @@ if __name__ == "__main__":
             arg_i += 1
 
     # TUIO based pattern receiver
-    tuio_server = CvPatternReceiver(IP, TUIO_PORT)
+    tuio_server = CvPatternReceiver(ip=IP, port=TUIO_PORT, pattern_timeout=1.0)
     tuio_server.start()
 
     images = {}

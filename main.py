@@ -18,16 +18,6 @@ def create_timestamp():
     return datetime.now().strftime(("%Y-%m-%d %H:%M:%S"))
 
 
-def run_surface_streams(send_port, protocol="jpeg"):
-    global CLIENT
-    from surface_streams_client import SurfaceStreamsClient
-    CLIENT = SurfaceStreamsClient(
-        my_ip=MY_IP, server_ip=SERVER_IP, video_send_port=send_port,
-        method="webcam", video_protocol=protocol
-    )
-    CLIENT.run()
-
-
 def run_realsense_pipeline(send_port, realsense_dir, protocol="jpeg"):
     global VIDEO_STREAMER, STREAM_RECEIVER
     from streaming.subprocess_sender import RealsenseSender

@@ -58,7 +58,11 @@ class SurfaceStreamsClient(object):
                 )
                 send_pid = self._video_streamer.start()
 
-                self._object_streamer = TrackSubProcess()
+                self._object_streamer = TrackSubProcess(
+                    pattern_scale=0.13, server_ip="0.0.0.0", server_tuio_port=5001,
+                    frame_port=6666, frame_width=640, frame_protocol="jpeg",
+                    patterns_config="CLIENT_DATA/magic_patterns.txt"
+                )
                 track_pid = self._object_streamer.start()
 
                 recv = RecvSubProcess(
