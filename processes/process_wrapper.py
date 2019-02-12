@@ -3,7 +3,7 @@ import subprocess
 
 class ProcessWrapper(object):
     """
-    BC for all process based classes.
+    BC for all subprocess based senders.
     """
 
     def __init__(self):

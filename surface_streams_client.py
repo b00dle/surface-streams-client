@@ -2,9 +2,9 @@ import sys
 import requests
 from datetime import datetime
 
-from processes.surface_streams_receiver import RecvSubProcess
-from processes.surface_streams_tracker import TrackSubProcess
-from processes.surface_streams_web_cam import WebCamSenderSubProcess
+from processes.surface_receiver import SurfaceReceiver
+from processes.surface_tracker import SurfaceTracker
+from processes.webcam_surface import WebcamSurface
 
 
 def create_timestamp():
@@ -52,20 +52,20 @@ class SurfaceStreamsClient(object):
                 print("  > initializing receiver")
                 print("  > port", data["video_sink_port"])
 
-                self._video_streamer = WebCamSenderSubProcess(
+                self._video_streamer = WebcamSurface(
                     server_port=self._video_send_port, my_port=6666,
                     monitor=False
                 )
                 send_pid = self._video_streamer.start()
 
-                self._object_streamer = TrackSubProcess(
+                self._object_streamer = SurfaceTracker(
                     pattern_scale=0.13, server_ip="0.0.0.0", server_tuio_port=5001,
                     frame_port=6666, frame_width=640, frame_protocol="jpeg",
                     patterns_config="CLIENT_DATA/magic_patterns.txt"
                 )
                 track_pid = self._object_streamer.start()
 
-                recv = RecvSubProcess(
+                recv = SurfaceReceiver(
                     frame_port=data["video_sink_port"], tuio_port=data["tuio_sink_port"],
                     server_ip=self._server_ip, ip=self._my_ip, width=320,
                     video_protocol=data["video_protocol"]

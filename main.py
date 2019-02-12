@@ -1,7 +1,6 @@
 import sys
 import requests
 from datetime import datetime
-
 from surface_streams_client import SurfaceStreamsClient
 
 VIDEO_STREAMER = None
@@ -20,11 +19,11 @@ def create_timestamp():
 
 def run_realsense_pipeline(send_port, realsense_dir, protocol="jpeg"):
     global VIDEO_STREAMER, STREAM_RECEIVER
-    from streaming.subprocess_sender import RealsenseSender
-    from streaming.udp_video_receiver import UdpVideoReceiver
+    from processes.realsense_surface import RealsenseSurface
+    from gstreamer.udp_video_receiver import UdpVideoReceiver
     GObject.threads_init()
     Gst.init(None)
-    VIDEO_STREAMER = RealsenseSender(realsense_dir=realsense_dir, protocol=protocol)
+    VIDEO_STREAMER = RealsenseSurface(realsense_dir=realsense_dir, protocol=protocol)
     VIDEO_STREAMER.set_port(send_port)
     VIDEO_STREAMER.set_host(SERVER_IP)
     VIDEO_STREAMER.start()

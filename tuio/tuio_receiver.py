@@ -1,11 +1,9 @@
 import argparse
 import time
-
+import multiprocessing
 from pythonosc import dispatcher
 from pythonosc import osc_server
-import multiprocessing
-
-from streaming.osc_pattern import OscPattern, OscPatternBnd, OscPatternSym
+from tuio.tuio_elements import TuioPattern, TuioBounds, TuioSymbol
 
 
 class OscReceiver(object):
@@ -24,17 +22,17 @@ class OscReceiver(object):
 
 def bnd_handler(path, fixed_args, s_id, u_id, x_pos, y_pos, angle, width, height):
     msg_queue = fixed_args[0]
-    msg_queue.put({"s_id": s_id, "u_id": u_id, "bnd": OscPatternBnd(x_pos, y_pos, angle, width, height)})
+    msg_queue.put({"s_id": s_id, "u_id": u_id, "bnd": TuioBounds(x_pos, y_pos, angle, width, height)})
 
 
 def sym_handler(path, fixed_args, s_id, u_id, tu_id, c_id, sym_type, sym_value):
     if sym_type != "uuid":
         raise ValueError("FAILURE: sym_type must be 'uuid'\n  > got:", sym_type)
     msg_queue = fixed_args[0]
-    msg_queue.put({"s_id": s_id, "u_id": u_id, "sym": OscPatternSym(sym_value, tu_id, c_id)})
+    msg_queue.put({"s_id": s_id, "u_id": u_id, "sym": TuioSymbol(sym_value, tu_id, c_id)})
 
 
-class CvPatternDispatcher(dispatcher.Dispatcher):
+class TuioPatternDispatcher(dispatcher.Dispatcher):
     def __init__(self, bnd_queue=multiprocessing.Queue(), sym_queue=multiprocessing.Queue()):
         super().__init__()
         self.bnd_queue = bnd_queue
@@ -43,9 +41,9 @@ class CvPatternDispatcher(dispatcher.Dispatcher):
         self.map("/tuio2/sym", sym_handler, self.sym_queue)
 
 
-class CvPatternReceiver(OscReceiver):
+class TuioPatternReceiver(OscReceiver):
     def __init__(self, ip, port, pattern_timeout=1.0):
-        self._dispatcher = CvPatternDispatcher()
+        self._dispatcher = TuioPatternDispatcher()
         super().__init__(ip, port, self._dispatcher)
         self._patterns = {}
         self._pattern_update_times = {}
@@ -69,7 +67,7 @@ class CvPatternReceiver(OscReceiver):
             s_id = bnd_msg["s_id"]
             u_id = bnd_msg["u_id"]
             if s_id not in self._patterns.keys():
-                self._patterns[s_id] = OscPattern(s_id=s_id, u_id=u_id)
+                self._patterns[s_id] = TuioPattern(s_id=s_id, u_id=u_id)
             self._patterns[s_id].set_bnd(bnd_msg["bnd"])
             self._pattern_update_times[s_id] = time_now
             if s_id not in update_log["bnd"]:
@@ -80,7 +78,7 @@ class CvPatternReceiver(OscReceiver):
             s_id = sym_msg["s_id"]
             u_id = sym_msg["u_id"]
             if s_id not in self._patterns.keys():
-                self._patterns[s_id] = OscPattern(s_id=s_id, u_id=u_id)
+                self._patterns[s_id] = TuioPattern(s_id=s_id, u_id=u_id)
                 self._pattern_update_times[s_id] = time_now
             if self._patterns[s_id].get_sym() != sym_msg["sym"]:
                 self._patterns[s_id].set_sym(sym_msg["sym"])
@@ -114,7 +112,7 @@ class CvPatternReceiver(OscReceiver):
 
 
 def run_pattern_receiver(ip="0.0.0.0", port=5004):
-    server = CvPatternReceiver(ip, port)
+    server = TuioPatternReceiver(ip, port)
     server.start()
 
     while True:

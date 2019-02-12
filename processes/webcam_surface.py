@@ -1,7 +1,7 @@
-from streaming.subprocess_sender import SubProcessWrapper
+from processes import ProcessWrapper
 
 
-class WebCamSenderSubProcess(SubProcessWrapper):
+class WebcamSurface(ProcessWrapper):
     def __init__(self, server_port, my_port, server_ip="0.0.0.0", protocol="jpeg", server_stream_width=320, monitor=True):
         super().__init__()
         self._server_port = server_port

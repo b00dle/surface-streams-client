@@ -3,7 +3,7 @@ import time
 
 from pythonosc import udp_client
 
-from streaming.osc_pattern import OscPattern
+from tuio.tuio_elements import TuioPattern
 
 
 class OscSender(object):
@@ -37,7 +37,7 @@ def extract_sym_args(pattern):
     ]
 
 
-class CvPatternSender(OscSender):
+class TuioPatternSender(OscSender):
     def __init__(self, ip, port):
         super().__init__(ip, port)
 
@@ -52,19 +52,19 @@ class CvPatternSender(OscSender):
 
 
 def run_pattern_sender(ip="0.0.0.0", port=5001):
-    from streaming.osc_pattern import OscPatternBnd, OscPatternSym
+    from tuio.tuio_elements import TuioBounds, TuioSymbol
     import random
     import uuid
 
-    patterns = [OscPattern(u_id=random.randint(0,500))
+    patterns = [TuioPattern(u_id=random.randint(0, 500))
                 for i in range(0, 10)]
     for p in patterns:
         x = random.randint(0, 10)
         y = 10 - x
-        p.set_bnd(OscPatternBnd(x, y, 0, 10, 10))
-        p.set_sym(OscPatternSym(str(uuid.uuid4())))
+        p.set_bnd(TuioBounds(x, y, 0, 10, 10))
+        p.set_sym(TuioSymbol(str(uuid.uuid4())))
 
-    client = CvPatternSender(ip, port)
+    client = TuioPatternSender(ip, port)
     client.send_patterns(patterns)
 
     for x in range(0,10):

@@ -1,13 +1,13 @@
 import numpy as np
 import cv2 as cv
 import os
-from streaming.cv_video_receiver import CvVideoReceiver
-from streaming.subprocess_sender import SubProcessWrapper
-from streaming.osc_receiver import CvPatternReceiver
-from streaming import api_helper
+from processes import ProcessWrapper
+from opencv.cv_udp_video_receiver import CvUdpVideoReceiver
+from tuio.tuio_receiver import TuioPatternReceiver
+from webutils import api_helper
 
 
-class RecvSubProcess(SubProcessWrapper):
+class SurfaceReceiver(ProcessWrapper):
     def __init__(self, frame_port, tuio_port, server_ip, width=640, height=480, ip="0.0.0.0", video_protocol="jpeg", download_folder="CLIENT_DATA/"):
         super().__init__()
         self._frame_port = frame_port
@@ -95,13 +95,13 @@ if __name__ == "__main__":
             arg_i += 1
 
     # TUIO based pattern receiver
-    tuio_server = CvPatternReceiver(ip=IP, port=TUIO_PORT, pattern_timeout=1.0)
+    tuio_server = TuioPatternReceiver(ip=IP, port=TUIO_PORT, pattern_timeout=1.0)
     tuio_server.start()
 
     images = {}
     img_paths = []
 
-    cap = CvVideoReceiver(port=FRAME_PORT, protocol=PROTOCOL)
+    cap = CvUdpVideoReceiver(port=FRAME_PORT, protocol=PROTOCOL)
 
     frame = None
     if cap is None:

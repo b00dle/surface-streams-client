@@ -3,15 +3,15 @@ import cv2 as cv
 import time
 import os
 import sys
-from streaming.cv_video_receiver import CvVideoReceiver
-from streaming.subprocess_sender import SubProcessWrapper
-from streaming.osc_sender import CvPatternSender
-from streaming.osc_pattern import OscPattern
-from tracking.gst_cv_tracking import GstCvTracking
-from streaming import api_helper
+from processes import ProcessWrapper
+from opencv.cv_udp_video_receiver import CvUdpVideoReceiver
+from opencv.pattern_tracking import PatternTracking
+from tuio.tuio_sender import TuioPatternSender
+from tuio.tuio_elements import TuioPattern
+from webutils import api_helper
 
 
-class TrackSubProcess(SubProcessWrapper):
+class SurfaceTracker(ProcessWrapper):
     def __init__(self, pattern_scale=0.13, server_ip="0.0.0.0", server_tuio_port=5001, frame_port=6666, frame_width=640, frame_protocol="jpeg", patterns_config=""):
         super().__init__()
         self._patterns_config = patterns_config
@@ -49,7 +49,7 @@ def load_tracking_config(pattern_paths, pattern_match_scale, tracker):
     # initialize osc sender
     osc_patterns = {}
     for i in range(0, len(pattern_paths)):
-        p = OscPattern()
+        p = TuioPattern()
         osc_patterns[p.get_s_id()] = p
 
     # upload images & set uuids
@@ -112,14 +112,14 @@ if __name__ == "__main__":
             arg_i += 1
 
     # initialize osc sender
-    tuio_sender = CvPatternSender(SERVER_IP, SERVER_TUIO_PORT)
+    tuio_sender = TuioPatternSender(SERVER_IP, SERVER_TUIO_PORT)
 
     # initialize tracking
-    tracker = GstCvTracking()
+    tracker = PatternTracking()
     osc_patterns, pattern_ids = load_tracking_config(PATTERN_PATHS, PATTERN_MATCH_SCALE, tracker)
 
     # initialize video frame receiver
-    cap = CvVideoReceiver(port=FRAME_PORT, protocol=PROTOCOL, width=MATCHING_WIDTH)
+    cap = CvUdpVideoReceiver(port=FRAME_PORT, protocol=PROTOCOL, width=MATCHING_WIDTH)
 
     # start main processing loop
     print_config = True

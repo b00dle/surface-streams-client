@@ -1,12 +1,12 @@
-import os
+import gstreamer
 import gi
 gi.require_version("Gst", "1.0")
 gi.require_version("Gtk", "3.0")
 gi.require_version("GstVideo", "1.0")
 from gi.repository import Gst, Gtk, GstVideo, GdkX11
-from streaming.gst_pipeline import GstPipeline
-import streaming
+from gstreamer.gst_pipeline import GstPipeline
 from pprint import pprint
+
 
 class UdpVideoReceiver(GstPipeline):
     '''
@@ -53,27 +53,27 @@ class UdpVideoReceiver(GstPipeline):
         rtp_depay = None
         decoder = None
         if self._protocol == "jpeg":
-            self.udp_src.set_property("caps", Gst.caps_from_string(streaming.JPEG_CAPS))
+            self.udp_src.set_property("caps", Gst.caps_from_string(gstreamer.JPEG_CAPS))
             rtp_depay = self.make_add_element("rtpgstdepay", "rtp_depay")
             decoder = self.make_add_element("jpegdec", "jpeg_decoder")
         elif self._protocol == "vp8":
-            self.udp_src.set_property("caps", Gst.caps_from_string(streaming.VP8_CAPS))
+            self.udp_src.set_property("caps", Gst.caps_from_string(gstreamer.VP8_CAPS))
             rtp_depay = self.make_add_element("rtpvp8depay", "v8_depay")
             decoder = self.make_add_element("vp8dec", "v8_decoder")
         elif self._protocol == "vp9":
-            self.udp_src.set_property("caps", Gst.caps_from_string(streaming.VP9_CAPS))
+            self.udp_src.set_property("caps", Gst.caps_from_string(gstreamer.VP9_CAPS))
             rtp_depay = self.make_add_element("rtpvp9depay", "v9_depay")
             decoder = self.make_add_element("vp9dec", "v9_decoder")
         elif self._protocol == "mp4":
-            self.udp_src.set_property("caps", Gst.caps_from_string(streaming.MP4_CAPS))
+            self.udp_src.set_property("caps", Gst.caps_from_string(gstreamer.MP4_CAPS))
             rtp_depay = self.make_add_element("rtpmp4vdepay", "mp4_depay")
             decoder = self.make_add_element("avdec_mpeg4", "mp4_decoder")
         elif self._protocol == "h264":
-            self.udp_src.set_property("caps", Gst.caps_from_string(streaming.H264_CAPS))
+            self.udp_src.set_property("caps", Gst.caps_from_string(gstreamer.H264_CAPS))
             rtp_depay = self.make_add_element("rtph264depay", "h264_depay")
             decoder = self.make_add_element("avdec_h264", "h264_decoder")
         elif self._protocol == "h265":
-            self.udp_src.set_property("caps", Gst.caps_from_string(streaming.H265_CAPS))
+            self.udp_src.set_property("caps", Gst.caps_from_string(gstreamer.H265_CAPS))
             rtp_depay = self.make_add_element("rtph265depay", "h265_depay")
             decoder = self.make_add_element("avdec_h264", "h265_decoder")
         videoconvert = self.make_add_element("videoconvert", "video_converter")

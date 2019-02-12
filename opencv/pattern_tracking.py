@@ -5,8 +5,9 @@ import math
 import threading
 
 from scipy.spatial import distance as dist
-from tracking.template_matching import SiftPattern, FlannMatcher
-from streaming.osc_pattern import OscPatternBnd
+from opencv.sift_pattern import SiftPattern
+from opencv.flann_matcher import FlannMatcher
+from tuio.tuio_elements import TuioBounds
 
 SIFT = cv.xfeatures2d.SIFT_create()
 MIN_MATCH_COUNT = 10
@@ -40,7 +41,7 @@ def order_points(pts):
     return np.array([tr, tl, bl, br], dtype="float32")
 
 
-class GstCvTrackingThread(threading.Thread):
+class PatternTrackingThread(threading.Thread):
     def __init__(self, image=None, patterns=[]):
         super().__init__()
         self._flann = FlannMatcher()
@@ -94,15 +95,15 @@ class GstCvTrackingThread(threading.Thread):
                     width = height
                     height = t
                     # angle = 90 + angle
-                bnd = OscPatternBnd(
+                bnd = TuioBounds(
                     rect[0][0], rect[0][1],  # pos
                     angle,  # rotation
                     width, height  # size
                 ).normalized(h, h)
-                self.results.append(CvTrackingResult(pattern.get_id(), bnd))
+                self.results.append(PatternTrackingResult(pattern.get_id(), bnd))
 
 
-class GstCvTracking(object):
+class PatternTracking(object):
     def __init__(self):
         self._flann = FlannMatcher()
         self.patterns = {}
@@ -156,12 +157,12 @@ class GstCvTracking(object):
                     width = height
                     height = t
                     #angle = 90 + angle
-                bnd = OscPatternBnd(
+                bnd = TuioBounds(
                     rect[0][0], rect[0][1],  # pos
                     angle,                   # rotation
                     width, height            # size
                 ).normalized(h, h)
-                res.append(CvTrackingResult(pattern.get_id(), bnd))
+                res.append(PatternTrackingResult(pattern.get_id(), bnd))
         return res
 
     def track_concurrent(self, image, num_threads=4):
@@ -173,7 +174,7 @@ class GstCvTracking(object):
             patterns[thread_id].append(temp[i])
         for p in patterns:
             if len(p) > 0:
-                thread = GstCvTrackingThread(image=image, patterns=p)
+                thread = PatternTrackingThread(image=image, patterns=p)
                 thread.patterns = p
                 thread.image = image
                 thread.start()
@@ -199,10 +200,10 @@ class GstCvTracking(object):
             self.load_pattern(paths[i], pattern_ids[i], scale)
 
 
-class CvTrackingResult(object):
+class PatternTrackingResult(object):
     """ Data Transfer object for Tracking Results. """
 
-    def __init__(self, pattern_id=None, bnd=OscPatternBnd()):
+    def __init__(self, pattern_id=None, bnd=TuioBounds()):
         self.pattern_id = pattern_id
         self.bnd = bnd
 
@@ -211,7 +212,7 @@ class CvTrackingResult(object):
 
 
 def run(pattern_paths, video_path):
-    tracker = GstCvTracking()
+    tracker = PatternTracking()
     tracker.load_patterns(pattern_paths)
 
     # setup video capture

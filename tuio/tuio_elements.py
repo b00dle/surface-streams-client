@@ -1,4 +1,4 @@
-class OscPatternBnd(object):
+class TuioBounds(object):
     def __init__(self, x_pos=0.0, y_pos=0.0, angle=0.0, width=0.0, height=0.0):
         self.x_pos = x_pos
         self.y_pos = y_pos
@@ -10,13 +10,13 @@ class OscPatternBnd(object):
         return self.width <= 0 or self.height <= 0
 
     def normalized(self, h, w):
-        return OscPatternBnd(self.x_pos / w, self.y_pos / h, self.angle, self.width / w, self.height / h)
+        return TuioBounds(self.x_pos / w, self.y_pos / h, self.angle, self.width / w, self.height / h)
 
     def scaled(self, h, w):
-        return OscPatternBnd(self.x_pos * w, self.y_pos * h, self.angle, self.width * w, self.height * h)
+        return TuioBounds(self.x_pos * w, self.y_pos * h, self.angle, self.width * w, self.height * h)
 
     def __str__(self):
-        s = "<CvPatternBnd x_pos="+str(self.x_pos)+" y_pos="+str(self.y_pos)+" "
+        s = "<TuioBounds x_pos="+str(self.x_pos)+" y_pos="+str(self.y_pos)+" "
         s += "angle="+str(self.angle)+" width="+str(self.width)+" "
         s += "height="+str(self.height)+">"
         return s
@@ -25,7 +25,7 @@ class OscPatternBnd(object):
         return self.__str__()
 
 
-class OscPatternSym(object):
+class TuioSymbol(object):
     def __init__(self, uuid=None, tu_id=-1, c_id=-1):
         self.uuid = uuid
         self.tu_id = tu_id
@@ -43,7 +43,7 @@ class OscPatternSym(object):
         return not self.__eq__(other)
 
     def __str__(self):
-        s = "<CvPatternSym uuid="+str(self.uuid)+" "
+        s = "<TuioSymbol uuid="+str(self.uuid)+" "
         s += "tu_id="+str(self.tu_id)+" c_id="+str(self.c_id)+">"
         return s
 
@@ -51,24 +51,24 @@ class OscPatternSym(object):
         return self.__str__()
 
 
-class OscPattern(object):
+class TuioPattern(object):
     current_pattern_count = 0
 
     def __init__(self, s_id=None, bnd=None, sym=None, u_id=-1):
         self._s_id = s_id
         if self._s_id is None:
-            self._s_id = OscPattern.current_pattern_count
-            OscPattern.current_pattern_count += 1
+            self._s_id = TuioPattern.current_pattern_count
+            TuioPattern.current_pattern_count += 1
         self._bnd = bnd
         if self._bnd is None:
-            self._bnd = OscPatternBnd()
+            self._bnd = TuioBounds()
         self._sym = sym
         if self._sym is None:
-            self._sym = OscPatternSym()
+            self._sym = TuioSymbol()
         self._u_id = u_id # user_id
 
     def __str__(self):
-        s = "<CvPattern s_id="+str(self._s_id)+" "+"u_id="+str(self._u_id)+" "
+        s = "<TuioPattern s_id="+str(self._s_id)+" "+"u_id="+str(self._u_id)+" "
         s += "bnd="+str(self._bnd)+" sym="+str(self._sym)+">"
         return s
 
