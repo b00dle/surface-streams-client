@@ -1,8 +1,9 @@
 import sys
-import requests
 from datetime import datetime
 from surface_streams_client import SurfaceStreamsClient
+from webutils.surface_streams_session import SurfaceStreamsSession
 
+SERVER_CONNECTION = None
 VIDEO_STREAMER = None
 OBJECT_STREAMER = None
 STREAM_RECEIVER = None
@@ -18,52 +19,36 @@ def create_timestamp():
 
 
 def run_realsense_pipeline(send_port, realsense_dir, protocol="jpeg"):
-    global VIDEO_STREAMER, STREAM_RECEIVER
+    global VIDEO_STREAMER, STREAM_RECEIVER, SERVER_CONNECTION
     from processes.realsense_surface import RealsenseSurface
     from gstreamer.udp_video_receiver import UdpVideoReceiver
+    from webutils import api_helper
     GObject.threads_init()
     Gst.init(None)
+
+    SERVER_CONNECTION = SurfaceStreamsSession(
+        my_ip=MY_IP, name="python-client-" + create_timestamp(),
+        video_src_port=send_port, video_protocol=protocol
+    )
+
     VIDEO_STREAMER = RealsenseSurface(realsense_dir=realsense_dir, protocol=protocol)
     VIDEO_STREAMER.set_port(send_port)
-    VIDEO_STREAMER.set_host(SERVER_IP)
+    VIDEO_STREAMER.set_host(api_helper.SERVER_IP)
     VIDEO_STREAMER.start()
 
-    r = requests.post("http://" + SERVER_IP + ":5000/api/clients", data={}, json={
-        "ip": MY_IP,
-        "video_src_port": send_port,
-        "name": "python-client-" + create_timestamp(),
-        "video_sink_port": -1,
-        "video_protocol": protocol,
-        "tuio_sink_port": -1
-    })
-    if r.status_code == 200:
-        if r.headers['content-type'] == "application/json":
-            data = r.json()
-            print("### SUCCESS\n  > data", data)
-            print("  > initializing receiver")
-            print("  > port", data["video_sink_port"])
-            STREAM_RECEIVER = (data["uuid"], UdpVideoReceiver(protocol=protocol))
-            STREAM_RECEIVER[1].start(data["video_sink_port"])
-        else:
-            print("### API error\n > expecting response json")
+    if SERVER_CONNECTION.connect():
+        STREAM_RECEIVER = UdpVideoReceiver(protocol=SERVER_CONNECTION.get_video_protocol())
+        STREAM_RECEIVER.start(SERVER_CONNECTION.get_video_sink_port())
+        Gtk.main()
     else:
-        print("### HTTP error\n  > code", r.status_code)
-        print("  > reason", r.reason)
-
-    Gtk.main()
+        print("Server connection failed. Aborting.")
 
 
 def shutdown_realsense_pipeline():
+    global STREAM_RECEIVER, VIDEO_STREAMER, SERVER_CONNECTION
     if STREAM_RECEIVER is not None:
         VIDEO_STREAMER.cleanup()
-        url = "http://" + SERVER_IP +":5000/api/clients/" + STREAM_RECEIVER[0]
-        r = requests.delete(url)
-        if r.status_code == 200:
-            print("### SUCCESS\n  > CLEANUP DONE")
-        else:
-            print("### HTTP error\n  > code", r.status_code)
-            print("  > reason", r.reason)
-    global VIDEO_STREAMER
+        SERVER_CONNECTION.disconnect()
     VIDEO_STREAMER.stop()
     print("### Realsense process finished with code", VIDEO_STREAMER.return_code)
 
