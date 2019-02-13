@@ -3,6 +3,7 @@ from datetime import datetime
 from processes.surface_receiver import SurfaceReceiver
 from processes.surface_tracker import SurfaceTracker
 from processes.webcam_surface import WebcamSurface
+from processes.realsense_surface import RealsenseSurface
 from webutils.surface_streams_session import SurfaceStreamsSession
 from webutils import api_helper
 
@@ -30,7 +31,7 @@ class SurfaceStreamsClient(object):
         if self._method == "webcam":
             self._run_webcam_stream()
         elif self._method == "realsense":
-            print("TODO realsense")
+            self._run_realsense_stream()
         else:
             raise ValueError("Method '" + self._method + "' not implemented.")
         self.shutdown()
@@ -41,12 +42,13 @@ class SurfaceStreamsClient(object):
             # initialize video streamer, object streamer and stream receiver
             self._video_streamer = WebcamSurface(
                 server_port=self._session.get_video_src_port(), my_port=6666,
+                server_ip=api_helper.SERVER_IP, protocol=self._session.get_video_protocol(),
                 monitor=False
             )
             self._object_streamer = SurfaceTracker(
                 server_ip=api_helper.SERVER_IP, server_tuio_port=5001,
                 frame_port=6666, frame_width=640, frame_protocol=self._session.get_video_protocol(),
-                patterns_config="CLIENT_DATA/magic_patterns.txt", pattern_scale=0.13
+                patterns_config="CLIENT_DATA/tracking_patterns.txt", pattern_scale=0.13
             )
             self._stream_receiver = SurfaceReceiver(
                 frame_port=self._session.get_video_sink_port(),
@@ -66,15 +68,45 @@ class SurfaceStreamsClient(object):
         else:
             print("Server connection failed. Aborting.")
 
+    def _run_realsense_stream(self):
+        # connect to surface streams server
+        if self._session.connect():
+            # initialize video streamer, object streamer and stream receiver
+            self._video_streamer = RealsenseSurface(
+                server_port=self._session.get_video_src_port(), server_ip=api_helper.SERVER_IP,
+                my_port=6666, realsense_dir=self._realsense_dir, protocol=self._session.get_video_protocol(),
+                monitor=True, server_stream_width=640
+            )
+            self._object_streamer = SurfaceTracker(
+                server_ip=api_helper.SERVER_IP, server_tuio_port=5001,
+                frame_port=6666, frame_width=640, frame_protocol=self._session.get_video_protocol(),
+                patterns_config="CLIENT_DATA/tracking_patterns.txt", pattern_scale=0.6
+            )
+            self._stream_receiver = SurfaceReceiver(
+                frame_port=self._session.get_video_sink_port(),
+                tuio_port=self._session.get_tuio_sink_port(),
+                server_ip=api_helper.SERVER_IP, ip=self._session.get_my_ip(),
+                width=720, video_protocol=self._session.get_video_protocol()
+            )
+            # start streaming
+            self._video_streamer.start()
+            self._object_streamer.start()
+            self._stream_receiver.start()
+            # wait until streaming finished
+            ret = self._object_streamer.wait()
+            print("SurfaceStreams Object Streamer Process finished with exit code ", ret)
+            ret = self._stream_receiver.wait()
+            print("SurfaceStreams Stream Receiver Process finished with exit code ", ret)
+        else:
+            print("Server connection failed. Aborting.")
+
     def shutdown(self):
-        if self._method == "webcam":
-            self._shutdown_webcam_stream()
-        elif self._method == "realsense":
-            print("TODO realsense")
+        if self._method == "webcam" or self._method == "realsense":
+            self._shutdown_surface_stream()
         else:
             raise ValueError("Method '" + self._method + "' not implemented.")
 
-    def _shutdown_webcam_stream(self):
+    def _shutdown_surface_stream(self):
         if self._session.disconnect():
             print("### SUCCESS\n  > disconnected from server")
         else:

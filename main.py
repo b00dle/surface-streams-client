@@ -56,8 +56,8 @@ def shutdown_realsense_pipeline():
 def read_args():
     global MY_IP, SERVER_IP, METHOD, REALSENSE_DIR, PROTOCOL
 
-    # METHOD = "realsense"
-    METHOD = "webcam"
+    METHOD = "realsense"
+    #METHOD = "webcam"
     REALSENSE_DIR = "/home/companion/surface-streams/"
     PROTOCOL = "jpeg"
 
@@ -97,20 +97,11 @@ def main():
     read_args()
 
     # run each call separately to create 3 clients
-    if METHOD == "realsense":
-        run_realsense_pipeline(5001, REALSENSE_DIR, PROTOCOL)
-        # run_realsense_pipeline(5002, REALSENSE_DIR)
-        # run_realsense_pipeline(5003, REALSENSE_DIR)
-        shutdown_realsense_pipeline()
-    elif METHOD == "webcam":
-        client = SurfaceStreamsClient(
-            my_ip=MY_IP, server_ip=SERVER_IP, video_send_port=5002,
-            method="webcam", video_protocol=PROTOCOL
-        )
-        client.run()
-    else:
-        print("FAILURE")
-        print("  > method '" + METHOD + "' not recognized.")
+    client = SurfaceStreamsClient(
+        my_ip=MY_IP, server_ip=SERVER_IP, video_send_port=5002,
+        method=METHOD, video_protocol=PROTOCOL, realsense_dir=REALSENSE_DIR
+    )
+    client.run()
 
 
 if __name__ == "__main__":

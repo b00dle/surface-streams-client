@@ -4,11 +4,11 @@ from processes import ProcessWrapper
 class WebcamSurface(ProcessWrapper):
     def __init__(self, server_port, my_port, server_ip="0.0.0.0", protocol="jpeg", server_stream_width=320, monitor=True):
         super().__init__()
-        self._server_port = server_port
-        self._my_port = my_port
         self._server_ip = server_ip
-        self._protocol = protocol
+        self._server_port = server_port
         self._server_stream_width = server_stream_width
+        self._my_port = my_port
+        self._protocol = protocol
         self._monitor = monitor
         self._pipeline_description = ""
         self._compute_launch_command()

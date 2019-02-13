@@ -107,15 +107,15 @@ if __name__ == "__main__":
     if cap is None:
         frame = np.zeros((H, W, 3), np.uint8)
 
+    no_capture = False
     while cap.is_capturing():
         update_log = tuio_server.update_patterns()
 
-        if cap is not None:
+        if no_capture:
+            frame[:, :] = (0, 0, 0)
+        elif cap is not None:
             frame = cap.capture()
             H, W, c = frame.shape
-
-        if cap is None:
-            frame[:, :] = (0, 0, 0)
 
         # iterate over all tracked patterns
         for p in tuio_server.get_patterns().values():
@@ -152,6 +152,10 @@ if __name__ == "__main__":
         key_pressed = cv.waitKey(1) & 0xFF
         if key_pressed == ord('q'):
             break
+        elif key_pressed == ord('n'):
+            no_capture = not no_capture
+            if no_capture:
+                frame = np.zeros((H, W, 3), np.uint8)
 
     # cleanup
     cap.release()

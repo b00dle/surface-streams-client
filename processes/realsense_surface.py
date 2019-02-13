@@ -7,18 +7,22 @@ class RealsenseSurface(ProcessWrapper):
     and streaming data over udp channel.
     """
 
-    def __init__(self, realsense_dir="./", protocol="jpeg"):
+    def __init__(self, server_port, my_port, server_ip="0.0.0.0", realsense_dir="./", server_stream_width=320, protocol="jpeg", monitor=True):
         """
         Constructor.
         :param realsense_dir: directory where ./realsense executable can be found.
         Program can be found and built at https://github.com/floe/surface-streams
         :param protocol: encoding for udp stream. Choose 'jpeg', 'vp8', 'mp4' or 'h264'
         """
-        self._protocol = protocol
-        self._realsense_dir = realsense_dir
-        self._host = "0.0.0.0"
-        self._port = 5000
         super().__init__()
+        self._server_ip = server_ip
+        self._server_port = server_port
+        self._server_stream_width = server_stream_width
+        self._my_port = my_port
+        self._realsense_dir = realsense_dir
+        self._protocol = protocol
+        self._monitor = monitor
+        self._compute_launch_command()
 
     def _compute_launch_command(self):
         """
@@ -26,42 +30,38 @@ class RealsenseSurface(ProcessWrapper):
         Includes a GStreamer pipeline for streaming reconstruction over udp.
         :return:
         """
-        gst_launch_cmd = ""
+        height = self._server_stream_width * 9/16.0
+        gst_videoscale = "videoscale ! video/x-raw, " \
+                         "width=" + str(self._server_stream_width) + ", " \
+                         "height=" + str(int(height))
+
+        gst_encoding = ""
         if self._protocol == "jpeg":
-            gst_launch_cmd = "videoconvert ! tee name=t ! queue ! jpegenc ! rtpgstpay ! "
+            gst_encoding += "jpegenc ! rtpgstpay"
         elif self._protocol == "vp8":
-            gst_launch_cmd = "videoconvert ! tee name=t ! queue ! vp8enc ! rtpvp8pay ! "
+            gst_encoding += "vp8enc ! rtpvp8pay"
         elif self._protocol == "vp9":
-            gst_launch_cmd = "videoconvert ! tee name=t ! queue ! vp9enc ! rtpvp9pay ! "
+            gst_encoding += "vp9enc ! rtpvp9pay"
         elif self._protocol == "mp4":
-            gst_launch_cmd = "videoconvert ! tee name=t ! queue ! avenc_mpeg4 ! rtpmp4vpay ! "
+            gst_encoding += "avenc_mpeg4 ! rtpmp4vpay"
         elif self._protocol == "h264":
-            gst_launch_cmd = "videoconvert ! tee name=t ! queue ! x264enc tune=zerolatency ! rtph264pay ! "
+            gst_encoding += "x264enc tune=zerolatency ! rtph264pay"
         elif self._protocol == "h265":
-            gst_launch_cmd = "videoconvert ! tee name=t ! queue ! x265enc tune=zerolatency ! rtph265pay ! "
-        gst_launch_cmd += "udpsink host=" + self._host + " port=" + str(self._port) + " "
-        gst_launch_cmd += "t. ! queue ! fpsdisplaysink"
-        gst_launch_cmd = '"' + gst_launch_cmd + ' "'
+            gst_encoding += "x265enc tune=zerolatency ! rtph265pay"
+
+        gst_launch_cmd = "queue ! videoconvert ! "
+        gst_launch_cmd += "tee name=t ! queue ! "
+        gst_launch_cmd += gst_videoscale + " ! "
+        gst_launch_cmd += gst_encoding + " ! "
+        gst_launch_cmd += "udpsink host=" + str(self._server_ip) + " port=" + str(self._server_port) + "  "
+        gst_launch_cmd += "t. ! queue ! "
+        gst_launch_cmd += gst_encoding + " ! "
+        gst_launch_cmd += "udpsink port=" + str(self._my_port)
+        if self._monitor:
+            gst_launch_cmd += "  t. ! queue ! fpsdisplaysink"
+
         args = []
         args.append(self._realsense_dir+"realsense")
         args.append("!")
         args.append(gst_launch_cmd)
         self._set_process_args(args)
-
-    def set_host(self, host):
-        """
-        Sets host receiving SurfaceStreams realsense stream.
-        :param host: host ip of format XXX.XXX.XXX.XXX, default = 0.0.0.0
-        :return:
-        """
-        self._host = host
-        self._compute_launch_command()
-
-    def set_port(self, port):
-        """
-        Sets host port receiving SurfaceStreams realsense stream.
-        :param port: port number, default = 5000
-        :return:
-        """
-        self._port = port
-        self._compute_launch_command()
