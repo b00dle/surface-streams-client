@@ -123,9 +123,6 @@ class PatternTracking(object):
     def get_rot(self, M):
         rad = -math.atan2(M[0][1], M[0][0])
         deg = math.degrees(rad)
-        #print("========")
-        #print(rad)
-        #print(deg)
         return deg
 
     def get_trans(self, M):
@@ -152,23 +149,30 @@ class PatternTracking(object):
             good = self._flann.knn_match(pattern, self._frame_pattern)
             if len(good) >= MIN_MATCH_COUNT:
                 M, mask = self._flann.find_homography(pattern, self._frame_pattern, good)
+                if M is None:
+                    continue
                 pts = pattern.get_shape_points()
                 dst = cv.perspectiveTransform(pts, M)
                 rect = cv.minAreaRect(dst)
                 # rotation angle of area rect
                 # doesn't take into account the pattern orientation
                 angle = self.get_rot(M) + 180
-                width = rect[1][0]
-                height = rect[1][1]
-                if width < height:
-                    t = width
-                    width = height
-                    height = t
-                    #angle = 90 + angle
+                width = max(rect[1][0], rect[1][1])
+                height = min(rect[1][0], rect[1][1])
+                # validate box
+                o_rect = cv.minAreaRect(pts)
+                o_width = max(o_rect[1][0], o_rect[1][1])
+                o_height = min(o_rect[1][0], o_rect[1][1])
+                if o_height == 0 or height == 0:
+                    continue
+                o_ratio = o_width / o_height
+                new_ratio = width / height
+                if abs(1 - o_ratio / new_ratio) > RATIO_TOLERANCE:
+                    continue
                 bnd = TuioBounds(
                     rect[0][0], rect[0][1],  # pos
-                    angle,                   # rotation
-                    width, height            # size
+                    angle,  # rotation
+                    width, height  # size
                 ).normalized(h, h)
                 res.append(PatternTrackingResult(pattern.get_id(), bnd))
         return res

@@ -138,7 +138,7 @@ if __name__ == "__main__":
         # patterns to send
         upd_patterns = []
 
-        for res in tracker.track_concurrent(frame, num_threads=4):
+        for res in tracker.track_concurrent(frame):
             # update patterns to send
             osc_patterns[res.pattern_id].set_bnd(res.bnd)
             if osc_patterns[res.pattern_id] not in upd_patterns:
