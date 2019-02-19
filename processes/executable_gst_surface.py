@@ -1,13 +1,13 @@
 from processes import ProcessWrapper
 
 
-class RealsenseSurface(ProcessWrapper):
+class ExecutableGstSurface(ProcessWrapper):
     """
-    Class used to encapsulate execution of Realsense SurfaceStreams reconstruction
+    Class used to encapsulate execution of SurfaceStreams reconstruction
     and streaming data over udp channel.
     """
 
-    def __init__(self, server_port, my_port, server_ip="0.0.0.0", realsense_dir="./", server_stream_width=320, protocol="jpeg", monitor=True):
+    def __init__(self, server_port, my_port, server_ip="0.0.0.0", executable_path="./realsense", server_stream_width=320, protocol="jpeg", monitor=True):
         """
         Constructor.
         :param realsense_dir: directory where ./realsense executable can be found.
@@ -19,7 +19,7 @@ class RealsenseSurface(ProcessWrapper):
         self._server_port = server_port
         self._server_stream_width = server_stream_width
         self._my_port = my_port
-        self._realsense_dir = realsense_dir
+        self._executable_path = executable_path
         self._protocol = protocol
         self._monitor = monitor
         self._compute_launch_command()
@@ -61,7 +61,7 @@ class RealsenseSurface(ProcessWrapper):
             gst_launch_cmd += "  t. ! queue ! fpsdisplaysink"
 
         args = []
-        args.append(self._realsense_dir+"realsense")
+        args.append(self._executable_path)
         args.append("!")
         args.append(gst_launch_cmd)
         self._set_process_args(args)

@@ -1,65 +1,27 @@
 import sys
 from datetime import datetime
 from surface_streams_client import SurfaceStreamsClient
-from webutils.surface_streams_session import SurfaceStreamsSession
 
 SERVER_CONNECTION = None
 VIDEO_STREAMER = None
 OBJECT_STREAMER = None
 STREAM_RECEIVER = None
-MY_IP = "0.0.0.0"
-SERVER_IP = "0.0.0.0"
-METHOD = "filesrc"
-REALSENSE_DIR = "./"
-PROTOCOL = "jpeg"
+MY_IP = "0.0.0.0"       # ip server will send merged video and TUIO stream to
+SERVER_IP = "0.0.0.0"   # surface streams server iop
+LOCAL_SURFACE = 6666    # local port for accessing surface stream data (used as CV tracking input)
+REMOTE_SURFACE = -1     # [-1 means set by server] server port for accessing surface stream data (used for video stream merge)
+METHOD = "gstexec"      # choose webcam or gstexec
+EXECUTABLE_PATH = "/home/companion/surface-streams/realsense"   # path to executable gst surface
+PATTERNS_CONFIG = "CLIENT_DATA/tuio_pattern.txt"                # config file containing all tracking patterns
+PROTOCOL = "jpeg"                                               # streaming protocol for video stream
 
 
 def create_timestamp():
     return datetime.now().strftime(("%Y-%m-%d %H:%M:%S"))
 
 
-def run_realsense_pipeline(send_port, realsense_dir, protocol="jpeg"):
-    global VIDEO_STREAMER, STREAM_RECEIVER, SERVER_CONNECTION
-    from processes.realsense_surface import RealsenseSurface
-    from gstreamer.udp_video_receiver import UdpVideoReceiver
-    from webutils import api_helper
-    GObject.threads_init()
-    Gst.init(None)
-
-    SERVER_CONNECTION = SurfaceStreamsSession(
-        my_ip=MY_IP, name="python-client-" + create_timestamp(),
-        video_src_port=send_port, video_protocol=protocol
-    )
-
-    VIDEO_STREAMER = RealsenseSurface(realsense_dir=realsense_dir, protocol=protocol)
-    VIDEO_STREAMER.set_port(send_port)
-    VIDEO_STREAMER.set_host(api_helper.SERVER_IP)
-    VIDEO_STREAMER.start()
-
-    if SERVER_CONNECTION.connect():
-        STREAM_RECEIVER = UdpVideoReceiver(protocol=SERVER_CONNECTION.get_video_protocol())
-        STREAM_RECEIVER.start(SERVER_CONNECTION.get_video_sink_port())
-        Gtk.main()
-    else:
-        print("Server connection failed. Aborting.")
-
-
-def shutdown_realsense_pipeline():
-    global STREAM_RECEIVER, VIDEO_STREAMER, SERVER_CONNECTION
-    if STREAM_RECEIVER is not None:
-        VIDEO_STREAMER.cleanup()
-        SERVER_CONNECTION.disconnect()
-    VIDEO_STREAMER.stop()
-    print("### Realsense process finished with code", VIDEO_STREAMER.return_code)
-
-
 def read_args():
-    global MY_IP, SERVER_IP, METHOD, REALSENSE_DIR, PROTOCOL
-
-    METHOD = "realsense"
-    #METHOD = "webcam"
-    REALSENSE_DIR = "/home/companion/surface-streams/"
-    PROTOCOL = "jpeg"
+    global MY_IP, SERVER_IP, METHOD, EXECUTABLE_PATH, PROTOCOL, PATTERNS_CONFIG, LOCAL_SURFACE, REMOTE_SURFACE
 
     if len(sys.argv) > 1:
         arg_i = 1
@@ -74,12 +36,21 @@ def read_args():
             elif arg == "-method":
                 arg_i += 1
                 METHOD = sys.argv[arg_i]
-            elif arg == "-realsensedir":
+            elif arg == "-execpath":
                 arg_i += 1
-                REALSENSE_DIR = sys.argv[arg_i]
+                EXECUTABLE_PATH = sys.argv[arg_i]
+            elif arg == "-patterns":
+                arg_i += 1
+                PATTERNS_CONFIG = sys.argv[arg_i]
             elif arg == "-protocol":
                 arg_i += 1
                 PROTOCOL = sys.argv[arg_i]
+            elif arg == "-localsurface":
+                arg_i += 1
+                LOCAL_SURFACE = int(sys.argv[arg_i])
+            elif arg == "-remotesurface":
+                arg_i += 1
+                REMOTE_SURFACE = int(sys.argv[arg_i])
             arg_i += 1
 
     print("Setting up SurfaceStreams client")
@@ -87,19 +58,23 @@ def read_args():
     print("  > Server IP:", SERVER_IP)
     print("  > Method:", METHOD)
     print("  > Video Protocol:", PROTOCOL)
-    print("  > Realsense dir:", REALSENSE_DIR)
+    print("  > Executable path:", EXECUTABLE_PATH)
+    print("  > Patterns:", PATTERNS_CONFIG)
+    print("  > Local surface port:", LOCAL_SURFACE)
+    print("  > Remote surface port:", REMOTE_SURFACE)
 
 
 def main():
-    global MY_IP, SERVER_IP, METHOD, REALSENSE_DIR, PROTOCOL
+    global MY_IP, SERVER_IP, METHOD, EXECUTABLE_PATH, PROTOCOL, PATTERNS_CONFIG, LOCAL_SURFACE, REMOTE_SURFACE
 
     # read command line arguments
     read_args()
 
     # run each call separately to create 3 clients
     client = SurfaceStreamsClient(
-        my_ip=MY_IP, server_ip=SERVER_IP, video_send_port=5002,
-        method=METHOD, video_protocol=PROTOCOL, realsense_dir=REALSENSE_DIR
+        my_ip=MY_IP, server_ip=SERVER_IP, video_send_port=REMOTE_SURFACE,
+        method=METHOD, video_protocol=PROTOCOL, executable_path=EXECUTABLE_PATH,
+        patterns_config=PATTERNS_CONFIG, surface_port=LOCAL_SURFACE
     )
     client.run()
 
