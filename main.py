@@ -70,7 +70,7 @@ def main():
     # read command line arguments
     read_args()
 
-    # run each call separately to create 3 clients
+    # run surface streams client using configuration
     client = SurfaceStreamsClient(
         my_ip=MY_IP, server_ip=SERVER_IP, video_send_port=REMOTE_SURFACE,
         method=METHOD, video_protocol=PROTOCOL, executable_path=EXECUTABLE_PATH,

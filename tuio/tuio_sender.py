@@ -3,7 +3,7 @@ import time
 
 from pythonosc import udp_client
 
-from tuio.tuio_elements import TuioPattern
+from tuio.tuio_elements import TuioImagePattern
 
 
 class OscSender(object):
@@ -56,7 +56,7 @@ def run_pattern_sender(ip="0.0.0.0", port=5001):
     import random
     import uuid
 
-    patterns = [TuioPattern(u_id=random.randint(0, 500))
+    patterns = [TuioImagePattern(u_id=random.randint(0, 500))
                 for i in range(0, 10)]
     for p in patterns:
         x = random.randint(0, 10)

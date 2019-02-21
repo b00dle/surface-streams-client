@@ -3,7 +3,7 @@ import time
 import multiprocessing
 from pythonosc import dispatcher
 from pythonosc import osc_server
-from tuio.tuio_elements import TuioPattern, TuioBounds, TuioSymbol
+from tuio.tuio_elements import TuioImagePattern, TuioBounds, TuioSymbol
 
 
 class OscReceiver(object):
@@ -67,7 +67,7 @@ class TuioPatternReceiver(OscReceiver):
             s_id = bnd_msg["s_id"]
             u_id = bnd_msg["u_id"]
             if s_id not in self._patterns.keys():
-                self._patterns[s_id] = TuioPattern(s_id=s_id, u_id=u_id)
+                self._patterns[s_id] = TuioImagePattern(s_id=s_id, u_id=u_id)
             self._patterns[s_id].set_bnd(bnd_msg["bnd"])
             self._pattern_update_times[s_id] = time_now
             if s_id not in update_log["bnd"]:
@@ -78,7 +78,7 @@ class TuioPatternReceiver(OscReceiver):
             s_id = sym_msg["s_id"]
             u_id = sym_msg["u_id"]
             if s_id not in self._patterns.keys():
-                self._patterns[s_id] = TuioPattern(s_id=s_id, u_id=u_id)
+                self._patterns[s_id] = TuioImagePattern(s_id=s_id, u_id=u_id)
                 self._pattern_update_times[s_id] = time_now
             if self._patterns[s_id].get_sym() != sym_msg["sym"]:
                 self._patterns[s_id].set_sym(sym_msg["sym"])

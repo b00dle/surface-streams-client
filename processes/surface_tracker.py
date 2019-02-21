@@ -7,7 +7,8 @@ from processes import ProcessWrapper
 from opencv.cv_udp_video_receiver import CvUdpVideoReceiver
 from opencv.pattern_tracking import PatternTracking
 from tuio.tuio_sender import TuioPatternSender
-from tuio.tuio_elements import TuioPattern
+from tuio.tuio_elements import TuioImagePattern
+from tuio.tuio_tracking_config_parser import TuioTrackingConfigParser
 from webutils import api_helper
 
 
@@ -45,31 +46,30 @@ class SurfaceTracker(ProcessWrapper):
         self._set_process_args(args)
 
 
-def load_tracking_config(pattern_paths, pattern_match_scale, tracker):
-    # initialize osc sender
-    osc_patterns = {}
-    for i in range(0, len(pattern_paths)):
-        p = TuioPattern()
-        osc_patterns[p.get_s_id()] = p
+def apply_tracking_config(config_parser: TuioTrackingConfigParser, tracker: PatternTracking):
+    patterns = config_parser.get_patterns()
+    default_matching_scale = config_parser.get_default_matching_scale()
 
     # upload images & set uuids
     pattern_ids = []
-    p_idx = 0
-    for p in osc_patterns.values():
+    for p in patterns.values():
+        tracking_info = config_parser.get_tracking_info(p.get_s_id())
         pattern_ids.append(p.get_s_id())
-        uuid = api_helper.upload_image(pattern_paths[p_idx])
+        matching_scale = default_matching_scale
+        tracker.load_pattern(
+            tracking_info.matching_resource,
+            p.get_s_id(),
+            matching_scale
+        )
+        upload_path = tracking_info.matching_resource
+        if len(tracking_info.varying_upload_resource) > 0:
+            upload_path = tracking_info.varying_upload_resource
+        uuid = api_helper.upload_image(upload_path)
         p.set_uuid(uuid)
-        p_idx += 1
 
-    tracker.patterns = {}
-    tracker.load_patterns(pattern_paths, pattern_ids, pattern_match_scale)
-
-    return osc_patterns, pattern_ids
-
-
+    return patterns, pattern_ids
 
 if __name__ == "__main__":
-    PATTERN_PATHS = []
     PATTERN_MATCH_SCALE = 0.13
     SERVER_IP = "0.0.0.0"
     SERVER_TUIO_PORT = 5001
@@ -87,9 +87,6 @@ if __name__ == "__main__":
                 arg_i += 1
                 PATTERNS_CONFIG = sys.argv[arg_i]
                 print("Reading Tracking patterns from ", PATTERNS_CONFIG)
-                if os.path.isfile(PATTERNS_CONFIG):
-                    PATTERN_PATHS = [line.rstrip('\n') for line in open(PATTERNS_CONFIG)]
-                    print("  > ", PATTERN_PATHS)
             elif arg == "-pattern_scale":
                 arg_i += 1
                 PATTERN_MATCH_SCALE = float(sys.argv[arg_i])
@@ -116,7 +113,8 @@ if __name__ == "__main__":
 
     # initialize tracking
     tracker = PatternTracking()
-    osc_patterns, pattern_ids = load_tracking_config(PATTERN_PATHS, PATTERN_MATCH_SCALE, tracker)
+    config_parser = TuioTrackingConfigParser(PATTERNS_CONFIG)
+    osc_patterns, pattern_ids = apply_tracking_config(config_parser, tracker)
 
     # initialize video frame receiver
     cap = CvUdpVideoReceiver(port=FRAME_PORT, protocol=PROTOCOL, width=MATCHING_WIDTH)
@@ -167,11 +165,8 @@ if __name__ == "__main__":
         if key_pressed == ord('q'):
             break
         elif key_pressed == ord('r'):
-            if os.path.isfile(PATTERNS_CONFIG):
-                PATTERN_PATHS = [line.rstrip('\n') for line in open(PATTERNS_CONFIG)]
-                print("Refreshing patterns")
-                print("  > ", PATTERN_PATHS)
-                osc_patterns, pattern_ids = load_tracking_config(PATTERN_PATHS, PATTERN_MATCH_SCALE, tracker)
+            config_parser.parse()
+            osc_patterns, pattern_ids = apply_tracking_config(config_parser, tracker)
 
     # cleanup
     cap.release()

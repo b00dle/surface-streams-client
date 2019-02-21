@@ -51,14 +51,14 @@ class TuioSymbol(object):
         return self.__str__()
 
 
-class TuioPattern(object):
+class TuioImagePattern(object):
     current_pattern_count = 0
 
     def __init__(self, s_id=None, bnd=None, sym=None, u_id=-1):
         self._s_id = s_id
         if self._s_id is None:
-            self._s_id = TuioPattern.current_pattern_count
-            TuioPattern.current_pattern_count += 1
+            self._s_id = TuioImagePattern.current_pattern_count
+            TuioImagePattern.current_pattern_count += 1
         self._bnd = bnd
         if self._bnd is None:
             self._bnd = TuioBounds()
