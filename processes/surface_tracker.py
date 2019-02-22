@@ -6,7 +6,7 @@ import sys
 from processes import ProcessWrapper
 from opencv.cv_udp_video_receiver import CvUdpVideoReceiver
 from opencv.pattern_tracking import PatternTracking
-from tuio.tuio_sender import TuioPatternSender
+from tuio.tuio_sender import TuioSender
 from tuio.tuio_elements import TuioImagePattern
 from tuio.tuio_tracking_config_parser import TuioTrackingConfigParser
 from webutils import api_helper
@@ -109,7 +109,7 @@ if __name__ == "__main__":
             arg_i += 1
 
     # initialize osc sender
-    tuio_sender = TuioPatternSender(SERVER_IP, SERVER_TUIO_PORT)
+    tuio_sender = TuioSender(SERVER_IP, SERVER_TUIO_PORT)
 
     # initialize tracking
     tracker = PatternTracking()

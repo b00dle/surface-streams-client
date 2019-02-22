@@ -55,9 +55,13 @@ class TuioPointer(object):
     tu_id_pointer = 0
     tu_id_pen = 1
     tu_id_eraser = 2
+    current_pointer_count = 0
 
     def __init__(self, s_id=-1, u_id=-1, tu_id=-1, c_id=-1, x_pos=0.0, y_pos=0.0, radius=0.0, press=False):
         self.s_id = s_id
+        if self.s_id == -1:
+            self.s_id = TuioPointer.current_pointer_count
+            TuioPointer.current_pointer_count += 1
         self.u_id = u_id
         self.tu_id = tu_id
         self.c_id = c_id

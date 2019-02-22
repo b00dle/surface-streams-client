@@ -4,6 +4,8 @@ import os
 from processes import ProcessWrapper
 from opencv.cv_udp_video_receiver import CvUdpVideoReceiver
 from tuio.tuio_receiver import TuioReceiver
+from tuio.tuio_sender import TuioSender
+from tuio.tuio_elements import TuioPointer
 from webutils import api_helper
 
 
@@ -63,6 +65,7 @@ if __name__ == "__main__":
     DOWNLOAD_FOLDER = "CLIENT_DATA/"
     W = 640
     H = 480
+    WINDOW_NAME = "SurfaceStreams Receiver"
 
     if len(sys.argv) > 1:
         arg_i = 1
@@ -98,24 +101,68 @@ if __name__ == "__main__":
     tuio_server = TuioReceiver(ip=IP, port=TUIO_PORT, element_timeout=1.0)
     tuio_server.start()
 
+    # Gst & OpenCV based video stream receiver
+    cap = CvUdpVideoReceiver(port=FRAME_PORT, protocol=PROTOCOL)
+
+    # mouse handler for drawing
+    ptr = None
+    # TODO: hand in params
+    tuio_sender = TuioSender("0.0.0.0", 5001)
+
+    def tuio_draw_tracking(event, x, y, flags, param):
+        global ptr, tuio_sender
+        x_scaled = x/float(W)
+        y_scaled = y/float(H)
+
+        if event == cv.EVENT_LBUTTONDOWN:
+            ptr = TuioPointer(x_pos=x_scaled, y_pos=y_scaled, tu_id=TuioPointer.tu_id_pen)
+        elif event == cv.EVENT_MOUSEMOVE:
+            pass
+        elif event == cv.EVENT_LBUTTONUP:
+            ptr = None
+
+        if ptr is not None:
+            ptr.x_pos = x_scaled
+            ptr.y_pos = y_scaled
+            tuio_sender.send_pointer(ptr)
+
+    cv.namedWindow(WINDOW_NAME)
+    cv.setMouseCallback(WINDOW_NAME, tuio_draw_tracking)
+
+    # additional resource init
     images = {}
     img_paths = []
-
-    cap = CvUdpVideoReceiver(port=FRAME_PORT, protocol=PROTOCOL)
 
     frame = None
     if cap is None:
         frame = np.zeros((H, W, 3), np.uint8)
 
+    draw_frame = None
+    draw_paths = {
+        #"test": [[10,20],[10,30],[10,40]]
+    }
+    erase_paths = {}
+    draw_points = {}
+
     no_capture = False
     while cap.is_capturing():
-        update_log = tuio_server.update_patterns()
+        update_log = tuio_server.update_elements()
 
         if no_capture:
             frame[:, :] = (0, 0, 0)
         elif cap is not None:
             frame = cap.capture()
             H, W, c = frame.shape
+
+        if draw_frame is None:
+            draw_frame = np.zeros((H, W, 3), np.uint8)
+
+        dH, dW, dc = draw_frame.shape
+        H, W, c = frame.shape
+        if dH != H or dW != W:
+            draw_frame = np.zeros((H, W, 3), np.uint8)
+        else:
+            draw_frame[:, :] = (0, 0, 0)
 
         # iterate over all tracked patterns
         for p in tuio_server.get_patterns().values():
@@ -147,7 +194,44 @@ if __name__ == "__main__":
                 M = cv.getPerspectiveTransform(pts, box)  # order_points(box))
                 frame = cv.warpPerspective(img, M, (W, H), frame, borderMode=cv.BORDER_TRANSPARENT)
 
-        cv.imshow("SurfaceStreams Receiver", frame)
+        draw_points = {}
+
+        # iterate over all tracked pointers
+        for p in tuio_server.get_pointers().values():
+            # check next pointer if no data in current
+            if p.is_empty():
+                continue
+            # scale position
+            x = p.x_pos * W
+            y = p.y_pos * H
+            # extend drawing paths
+            if p.tu_id == TuioPointer.tu_id_pen:
+                if p.key() not in update_log["ptr"]:
+                    continue
+                if p.key() not in draw_paths:
+                    draw_paths[p.key()] = []
+                draw_paths[p.key()].append([x, y])
+            # extend eraser paths
+            elif p.tu_id == TuioPointer.tu_id_eraser:
+                if p.key() not in update_log["ptr"]:
+                    continue
+                if p.key() not in erase_paths:
+                    erase_paths[p.key()] = []
+                erase_paths[p.key()].append([x, y])
+            # extend drawing points
+            elif p.tu_id == TuioPointer.tu_id_pointer:
+                draw_points[p.key()] = [x, y]
+
+        # draw gathered info
+        np_draw_paths = []
+        for ptr_key, path in draw_paths.items():
+            if len(path) <= 1:
+                continue
+            np_draw_paths.append(np.array([p for p in path], np.int32))
+        if len(np_draw_paths) > 0:
+            cv.polylines(frame, np_draw_paths, False, (0, 255, 0), 3) # b, g, r
+
+        cv.imshow(WINDOW_NAME, frame)
 
         key_pressed = cv.waitKey(1) & 0xFF
         if key_pressed == ord('q'):

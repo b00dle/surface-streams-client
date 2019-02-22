@@ -62,7 +62,7 @@ class TuioReceiver(OscReceiver):
         self._pointer_update_times = {}
         self._element_timeout = element_timeout
 
-    def update_patterns(self):
+    def update_elements(self):
         """ Updates all patterns given the unprocessed messages
             stored by the dispatcher. Returns an update log,
             listing all updated_bnd s_ids and all
@@ -79,7 +79,7 @@ class TuioReceiver(OscReceiver):
         # extract sym updates
         self._process_sym_updates(update_log, time_now)
         # extract ptr updates
-
+        self._process_ptr_updates(update_log, time_now)
         # remove expired elements
         self._remove_expired_elements(time_now)
         return update_log
@@ -128,17 +128,17 @@ class TuioReceiver(OscReceiver):
                 if timestamp - last_updated > self._element_timeout:
                     del self._patterns[p_id]
                     del self._pattern_update_times[p_id]
-            pattern_keys = [p_id for p_id in self._patterns.keys()]
-            for p_id in pattern_keys:
-                last_updated = self._pattern_update_times[p_id]
+            pointer_keys = [k for k in self._pointers.keys()]
+            for k in pointer_keys:
+                last_updated = self._pointer_update_times[k]
                 if timestamp - last_updated > self._element_timeout:
-                    del self._patterns[p_id]
-                    del self._pattern_update_times[p_id]
+                    del self._pointers[k]
+                    del self._pointer_update_times[k]
 
     def get_pattern(self, s_id) -> TuioImagePattern:
         return self._patterns[s_id]
 
-    def get_patterns(self, s_ids=[]) -> Dict[TuioImagePattern]:
+    def get_patterns(self, s_ids=[]) -> Dict[int, TuioImagePattern]:
         if len(s_ids) == 0:
             return self._patterns
         return {s_id: self.get_pattern(s_id) for s_id in s_ids}
@@ -146,9 +146,9 @@ class TuioReceiver(OscReceiver):
     def get_pointer(self, key) -> TuioPointer:
         return self._pointers[key]
 
-    def get_pointers(self, keys=[]) -> Dict[TuioPointer]:
+    def get_pointers(self, keys=[]) -> Dict[str, TuioPointer]:
         if len(keys) == 0:
-            return self._patterns
+            return self._pointers
         return {key: self.get_pointer(key) for key in keys}
 
 
@@ -157,7 +157,7 @@ def run_pattern_receiver(ip="0.0.0.0", port=5004):
     server.start()
 
     while True:
-        update_log = server.update_patterns()
+        update_log = server.update_elements()
 
         nothing_updated = True
         if len(update_log["bnd"]) > 0:
