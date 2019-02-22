@@ -51,6 +51,49 @@ class TuioSymbol(object):
         return self.__str__()
 
 
+class TuioPointer(object):
+    tu_id_pointer = 0
+    tu_id_pen = 1
+    tu_id_eraser = 2
+
+    def __init__(self, s_id=-1, u_id=-1, tu_id=-1, c_id=-1, x_pos=0.0, y_pos=0.0, radius=0.0, press=False):
+        self.s_id = s_id
+        self.u_id = u_id
+        self.tu_id = tu_id
+        self.c_id = c_id
+        self.x_pos = x_pos
+        self.y_pos = y_pos
+        self.radius = radius
+        self.press = press
+
+    def is_empty(self):
+        return self.s_id == -1
+
+    def key(self):
+        return TuioPointer.calc_key(self.s_id, self.u_id, self.c_id)
+
+    @staticmethod
+    def calc_key(s_id, u_id, c_id):
+        return str(s_id) + "_" + str(u_id) + "_" + str(c_id)
+
+    def __eq__(self, other):
+        return self.key() == other.key()
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __str__(self):
+        s = "<TuioPointer s_id="+str(self.s_id)+" "
+        s += "u_id="+str(self.u_id)+" tu_id="+str(self.tu_id)+ " "
+        s += "c_id="+str(self.c_id)+" x_pos="+str(self.x_pos)+ " "
+        s += "y_pos="+str(self.y_pos)+" radius="+str(self.radius)+ " "
+        s += "press="+str(self.press)+">"
+        return s
+
+    def __repr__(self):
+        return self.__str__()
+
+
 class TuioImagePattern(object):
     current_pattern_count = 0
 

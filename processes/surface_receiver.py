@@ -3,7 +3,7 @@ import cv2 as cv
 import os
 from processes import ProcessWrapper
 from opencv.cv_udp_video_receiver import CvUdpVideoReceiver
-from tuio.tuio_receiver import TuioPatternReceiver
+from tuio.tuio_receiver import TuioReceiver
 from webutils import api_helper
 
 
@@ -95,7 +95,7 @@ if __name__ == "__main__":
             arg_i += 1
 
     # TUIO based pattern receiver
-    tuio_server = TuioPatternReceiver(ip=IP, port=TUIO_PORT, pattern_timeout=1.0)
+    tuio_server = TuioReceiver(ip=IP, port=TUIO_PORT, element_timeout=1.0)
     tuio_server.start()
 
     images = {}
