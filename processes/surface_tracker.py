@@ -25,7 +25,7 @@ class SurfaceTracker(ProcessWrapper):
 
     def _compute_launch_command(self):
         args = []
-        args.append("python")
+        args.append("python3")
         args.append(os.path.abspath(__file__))
         if len(self._patterns_config) > 0:
             args.append("-patterns_config")

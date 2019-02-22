@@ -22,7 +22,7 @@ class SurfaceReceiver(ProcessWrapper):
 
     def _compute_launch_command(self):
         args = []
-        args.append("python")
+        args.append("python3")
         args.append(os.path.abspath(__file__))
         args.append("-frame_port")
         args.append(str(self._frame_port))
