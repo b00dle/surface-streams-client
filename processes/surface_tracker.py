@@ -192,7 +192,7 @@ if __name__ == "__main__":
             break
         elif key_pressed == ord('r'):
             config_parser.parse()
-            osc_patterns, pattern_ids = apply_tracking_config(config_parser, tracker)
+            osc_patterns, pattern_ids, osc_pointers, pointer_ids = apply_tracking_config(config_parser, tracker)
 
     # cleanup
     cap.release()
