@@ -55,9 +55,8 @@ class SurfaceReceiver(ProcessWrapper):
 
 if __name__ == "__main__":
     import sys
-    import signal
-    import time
 
+    # Parse args
     IP = "0.0.0.0"
     FRAME_PORT = 5002
     TUIO_PORT = 5003
@@ -67,7 +66,6 @@ if __name__ == "__main__":
     H = 480
     WINDOW_NAME = "SurfaceStreams Receiver"
     POINTER_RADIUS = 10
-
     if len(sys.argv) > 1:
         arg_i = 1
         while arg_i < len(sys.argv):
@@ -109,9 +107,9 @@ if __name__ == "__main__":
     ptr = None
     ptr_point = None
     # TODO: hand in params
-    tuio_sender = TuioSender("0.0.0.0", 5001)
+    tuio_sender = TuioSender(api_helper.SERVER_IP, api_helper.SERVER_TUIO_PORT)
 
-    def tuio_draw_tracking(event, x, y, flags, param):
+    def tuio_cursor_doodle(event, x, y, flags, param):
         global ptr, ptr_point, tuio_sender
         x_scaled = x/float(W)
         y_scaled = y/float(H)
@@ -141,8 +139,8 @@ if __name__ == "__main__":
             ptr.y_pos = y_scaled
             tuio_sender.send_pointer(ptr)
 
-    cv.namedWindow(WINDOW_NAME)
-    cv.setMouseCallback(WINDOW_NAME, tuio_draw_tracking)
+    cv.namedWindow(WINDOW_NAME, cv.WINDOW_NORMAL)
+    cv.setMouseCallback(WINDOW_NAME, tuio_cursor_doodle)
 
     # additional resource init
     images = {}
@@ -154,11 +152,9 @@ if __name__ == "__main__":
 
     path_frame = None
     point_frame = None
-    draw_paths = {
-        #"test": [[10,20],[10,30],[10,40]]
-    }
-    erase_paths = {}
+    draw_paths = {}
     draw_points = {}
+    erase_paths = {}
 
     no_capture = False
     while cap.is_capturing():

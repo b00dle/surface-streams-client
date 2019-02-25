@@ -7,7 +7,6 @@ from processes import ProcessWrapper
 from opencv.cv_udp_video_receiver import CvUdpVideoReceiver
 from opencv.pattern_tracking import PatternTracking
 from tuio.tuio_sender import TuioSender
-from tuio.tuio_elements import TuioImagePattern
 from tuio.tuio_tracking_config_parser import TuioTrackingConfigParser
 from webutils import api_helper
 
@@ -68,6 +67,7 @@ def apply_tracking_config(config_parser: TuioTrackingConfigParser, tracker: Patt
         p.set_uuid(uuid)
 
     return patterns, pattern_ids
+
 
 if __name__ == "__main__":
     PATTERN_MATCH_SCALE = 0.13
