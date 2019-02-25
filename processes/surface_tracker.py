@@ -47,12 +47,13 @@ class SurfaceTracker(ProcessWrapper):
 
 def apply_tracking_config(config_parser: TuioTrackingConfigParser, tracker: PatternTracking):
     patterns = config_parser.get_patterns()
+    pointers = config_parser.get_pointers()
     default_matching_scale = config_parser.get_default_matching_scale()
 
     # upload images & set uuids
     pattern_ids = []
     for p in patterns.values():
-        tracking_info = config_parser.get_tracking_info(p.get_s_id())
+        tracking_info = config_parser.get_pattern_tracking_info(p.get_s_id())
         pattern_ids.append(p.get_s_id())
         matching_scale = default_matching_scale
         tracker.load_pattern(
@@ -66,7 +67,19 @@ def apply_tracking_config(config_parser: TuioTrackingConfigParser, tracker: Patt
         uuid = api_helper.upload_image(upload_path)
         p.set_uuid(uuid)
 
-    return patterns, pattern_ids
+    # configure tracked pointers
+    pointer_ids = []
+    for p in pointers.values():
+        tracking_info = config_parser.get_pointer_tracking_info(p.s_id)
+        pointer_ids.append(p.s_id)
+        matching_scale = default_matching_scale
+        tracker.load_pattern(
+            tracking_info.matching_resource,
+            p.s_id,
+            matching_scale
+        )
+
+    return patterns, pattern_ids, pointers, pointer_ids
 
 
 if __name__ == "__main__":
@@ -114,7 +127,7 @@ if __name__ == "__main__":
     # initialize tracking
     tracker = PatternTracking()
     config_parser = TuioTrackingConfigParser(PATTERNS_CONFIG)
-    osc_patterns, pattern_ids = apply_tracking_config(config_parser, tracker)
+    osc_patterns, pattern_ids, osc_pointers, pointer_ids = apply_tracking_config(config_parser, tracker)
 
     # initialize video frame receiver
     cap = CvUdpVideoReceiver(port=FRAME_PORT, protocol=PROTOCOL, width=MATCHING_WIDTH)
@@ -135,23 +148,36 @@ if __name__ == "__main__":
 
         # patterns to send
         upd_patterns = []
+        upd_pointers = []
 
         for res in tracker.track_concurrent(frame):
-            # update patterns to send
-            osc_patterns[res.pattern_id].set_bnd(res.bnd)
-            if osc_patterns[res.pattern_id] not in upd_patterns:
-                upd_patterns.append(osc_patterns[res.pattern_id])
-            # draw frame around tracked box
-            bnd_s = res.bnd.scaled(h, h)
-            box = cv.boxPoints((
-                (bnd_s.x_pos, bnd_s.y_pos),
-                (-bnd_s.width, bnd_s.height),
-                bnd_s.angle
-            ))
-            frame = cv.polylines(frame, [np.int32(box)], True, 255, 3, cv.LINE_AA)
+            if res.pattern_id in osc_patterns:
+                # update patterns to send
+                osc_patterns[res.pattern_id].set_bnd(res.bnd)
+                if osc_patterns[res.pattern_id] not in upd_patterns:
+                    upd_patterns.append(osc_patterns[res.pattern_id])
+                # draw frame around tracked box
+                bnd_s = res.bnd.scaled(h, h)
+                box = cv.boxPoints((
+                    (bnd_s.x_pos, bnd_s.y_pos),
+                    (-bnd_s.width, bnd_s.height),
+                    bnd_s.angle
+                ))
+                frame = cv.polylines(frame, [np.int32(box)], True, 255, 3, cv.LINE_AA)
+            elif res.pattern_id in osc_pointers:
+                if osc_pointers[res.pattern_id] not in upd_pointers:
+                    upd_pointers.append(osc_pointers[res.pattern_id])
+                bnd = res.bnd.scaled(h,h)
+                x = bnd.x_pos
+                y = bnd.y_pos
+                osc_pointers[res.pattern_id].x_pos = x / float(w)
+                osc_pointers[res.pattern_id].y_pos = y / float(h)
+                frame = cv.circle(frame, (int(x),int(y)), 10, (255, 0, 0), -1)
 
         # send patterns
         tuio_sender.send_patterns(upd_patterns)
+        # send pointers
+        tuio_sender.send_pointers(upd_pointers)
 
         if visualize:
             cv.imshow("SurfaceStreams Tracker", frame)

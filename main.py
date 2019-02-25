@@ -12,7 +12,7 @@ LOCAL_SURFACE = 6666    # local port for accessing surface stream data (used as 
 REMOTE_SURFACE = -1     # [-1 means set by server] server port for accessing surface stream data (used for video stream merge)
 METHOD = "gstexec"      # choose webcam or gstexec
 EXECUTABLE_PATH = "/home/companion/surface-streams/realsense"   # path to executable gst surface
-PATTERNS_CONFIG = "CLIENT_DATA/tuio_pattern.txt"                # config file containing all tracking patterns
+PATTERNS_CONFIG = "CLIENT_DATA/tuio_pattern.json"               # config file containing all tracking patterns
 PROTOCOL = "jpeg"                                               # streaming protocol for video stream
 
 
