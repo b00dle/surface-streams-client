@@ -6,10 +6,11 @@ import threading
 
 from scipy.spatial import distance as dist
 from opencv.sift_pattern import SiftPattern
+from opencv.surf_pattern import SurfPattern
+from opencv.orb_pattern import OrbPattern
 from opencv.flann_matcher import FlannMatcher
 from tuio.tuio_elements import TuioBounds
 
-SIFT = cv.xfeatures2d.SIFT_create()
 MIN_MATCH_COUNT = 10
 RATIO_TOLERANCE = 0.1
 
@@ -201,7 +202,7 @@ class PatternTracking(object):
     def load_pattern(self, path, pattern_id=None, scale=1.0):
         if pattern_id is None:
             pattern_id = path.split("/")[-1]
-        self.patterns[pattern_id] = SiftPattern(pattern_id, SIFT)
+        self.patterns[pattern_id] = SiftPattern(pattern_id)
         # load and compute descriptors only once
         self.patterns[pattern_id].load_image(path, scale)
 
@@ -249,7 +250,6 @@ def run(pattern_paths, video_path):
 
         h, w, c = frame.shape
 
-        i = 0
         for res in tracker.track(frame):
             bnd_s = res.bnd.scaled(h, h)
             box = cv.boxPoints((
@@ -258,14 +258,6 @@ def run(pattern_paths, video_path):
                bnd_s.angle
             ))
             frame = cv.polylines(frame, [np.int32(box)], True, 255, 3, cv.LINE_AA)
-            if i == track_num:
-                img = tracker.patterns[res.pattern_id].get_image().copy()
-                img_h, img_w = img.shape
-                pts = np.float32([[0, 0], [0, img_h - 1], [img_w - 1, img_h - 1], [img_w - 1, 0]]).reshape(-1, 1, 2)
-                M = cv.getPerspectiveTransform(pts, order_points(box))
-                img = cv.warpPerspective(img, M, (w, h))
-                cv.imshow("tracked-pattern", img)
-            i += 1
 
         cv.imshow("CVtest", frame)
 
@@ -280,5 +272,3 @@ def run(pattern_paths, video_path):
         key_pressed = cv.waitKey(1) & 0xFF
         if key_pressed == ord('q'):
             break
-        elif key_pressed == ord('w'):
-            track_num = (track_num + 1) % len(tracker.patterns)
