@@ -66,6 +66,7 @@ if __name__ == "__main__":
     W = 640
     H = 480
     WINDOW_NAME = "SurfaceStreams Receiver"
+    POINTER_RADIUS = 10
 
     if len(sys.argv) > 1:
         arg_i = 1
@@ -106,19 +107,33 @@ if __name__ == "__main__":
 
     # mouse handler for drawing
     ptr = None
+    ptr_point = None
     # TODO: hand in params
     tuio_sender = TuioSender("0.0.0.0", 5001)
 
     def tuio_draw_tracking(event, x, y, flags, param):
-        global ptr, tuio_sender
+        global ptr, ptr_point, tuio_sender
         x_scaled = x/float(W)
         y_scaled = y/float(H)
 
-        if event == cv.EVENT_LBUTTONDOWN:
+        # check draw
+        if event == cv.EVENT_LBUTTONDOWN and ptr is None:
             ptr = TuioPointer(x_pos=x_scaled, y_pos=y_scaled, tu_id=TuioPointer.tu_id_pen)
-        elif event == cv.EVENT_MOUSEMOVE:
-            pass
+            ptr_point = None
+        elif event == cv.EVENT_MOUSEMOVE and ptr is None:
+            if ptr_point is None:
+                ptr_point = TuioPointer(x_pos=x_scaled, y_pos=y_scaled, tu_id=TuioPointer.tu_id_pointer)
+            ptr_point.x_pos = x_scaled
+            ptr_point.y_pos = y_scaled
+            tuio_sender.send_pointer(ptr_point)
         elif event == cv.EVENT_LBUTTONUP:
+            ptr = None
+
+        # check erase
+        if event == cv.EVENT_RBUTTONDOWN and ptr is None:
+            ptr = TuioPointer(x_pos=x_scaled, y_pos=y_scaled, tu_id=TuioPointer.tu_id_eraser)
+            ptr_point = None
+        elif event == cv.EVENT_RBUTTONUP:
             ptr = None
 
         if ptr is not None:
@@ -137,7 +152,8 @@ if __name__ == "__main__":
     if cap is None:
         frame = np.zeros((H, W, 3), np.uint8)
 
-    draw_frame = None
+    path_frame = None
+    point_frame = None
     draw_paths = {
         #"test": [[10,20],[10,30],[10,40]]
     }
@@ -154,15 +170,22 @@ if __name__ == "__main__":
             frame = cap.capture()
             H, W, c = frame.shape
 
-        if draw_frame is None:
-            draw_frame = np.zeros((H, W, 3), np.uint8)
+        # create drawing frames if necessary
+        if path_frame is None:
+            path_frame = np.zeros((H, W, 3), np.uint8)
+        if point_frame is None:
+            point_frame = np.zeros((H, W, 3), np.uint8)
 
-        dH, dW, dc = draw_frame.shape
+        # resize drawing frames if necessary
         H, W, c = frame.shape
-        if dH != H or dW != W:
-            draw_frame = np.zeros((H, W, 3), np.uint8)
+        pH, pW, pc = path_frame.shape
+        if pH != H or pW != W:
+            path_frame = cv.resize(path_frame, (W, H))
+        ptH, ptW, ptc = point_frame.shape
+        if ptH != H or ptW != W:
+            point_frame = cv.resize(point_frame, (W, H))
         else:
-            draw_frame[:, :] = (0, 0, 0)
+            point_frame[:, :] = (0, 0, 0)
 
         # iterate over all tracked patterns
         for p in tuio_server.get_patterns().values():
@@ -202,8 +225,8 @@ if __name__ == "__main__":
             if p.is_empty():
                 continue
             # scale position
-            x = p.x_pos * W
-            y = p.y_pos * H
+            x = int(p.x_pos * W)
+            y = int(p.y_pos * H)
             # extend drawing paths
             if p.tu_id == TuioPointer.tu_id_pen:
                 if p.key() not in update_log["ptr"]:
@@ -220,17 +243,31 @@ if __name__ == "__main__":
                 erase_paths[p.key()].append([x, y])
             # extend drawing points
             elif p.tu_id == TuioPointer.tu_id_pointer:
-                draw_points[p.key()] = [x, y]
+                draw_points[p.key()] = (x, y)
 
-        # draw gathered info
+        # draw gathered paths
         np_draw_paths = []
         for ptr_key, path in draw_paths.items():
             if len(path) <= 1:
                 continue
             np_draw_paths.append(np.array([p for p in path], np.int32))
+            draw_paths[ptr_key] = [path[-1]]
         if len(np_draw_paths) > 0:
-            cv.polylines(frame, np_draw_paths, False, (0, 255, 0), 3) # b, g, r
+            cv.polylines(path_frame, np_draw_paths, False, (0, 255, 0), 3) # b, g, r
+        # draw gathered erasers
+        np_erase_paths = []
+        for ptr_key, path in erase_paths.items():
+            if len(path) <= 1:
+                continue
+            np_erase_paths.append(np.array([p for p in path], np.int32))
+            erase_paths[ptr_key] = [path[-1]]
+        if len(np_erase_paths) > 0:
+            cv.polylines(path_frame, np_erase_paths, False, (0, 0, 0), 10)  # b, g, r
+        # draw gathered points
+        for ptr_key, point in draw_points.items():
+            cv.circle(point_frame, point, POINTER_RADIUS, (0, 255, 0), -1) # b, g, r
 
+        frame = cv.add(cv.add(frame, point_frame), path_frame)
         cv.imshow(WINDOW_NAME, frame)
 
         key_pressed = cv.waitKey(1) & 0xFF
