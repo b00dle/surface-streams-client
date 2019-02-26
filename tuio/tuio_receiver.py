@@ -23,19 +23,28 @@ class OscReceiver(object):
 
 def bnd_handler(path, fixed_args, s_id, u_id, x_pos, y_pos, angle, width, height):
     msg_queue = fixed_args[0]
-    msg_queue.put({"s_id": s_id, "u_id": u_id, "bnd": TuioBounds(x_pos, y_pos, angle, width, height)})
+    bnd = TuioBounds(
+        x_pos=x_pos, y_pos=y_pos,
+        angle=angle, width=width, height=height
+    )
+    msg_queue.put({"s_id": s_id, "u_id": u_id, "bnd": bnd})
 
 
 def sym_handler(path, fixed_args, s_id, u_id, tu_id, c_id, sym_type, sym_value):
     if sym_type != "uuid":
         raise ValueError("FAILURE: sym_type must be 'uuid'\n  > got:", sym_type)
     msg_queue = fixed_args[0]
-    msg_queue.put({"s_id": s_id, "u_id": u_id, "sym": TuioSymbol(sym_value, tu_id, c_id)})
+    sym = TuioSymbol(uuid=sym_value, tu_id=tu_id, c_id=c_id)
+    msg_queue.put({"s_id": s_id, "u_id": u_id, "sym": sym})
 
 
-def ptr_handler(path, fixed_args, s_id, u_id, tu_id, c_id, x_pos, y_pos, radius, press, *unused):
+def ptr_handler(path, fixed_args, s_id, u_id, tu_id, c_id, x_pos, y_pos, radius, angle, shear, press, *unused):
     msg_queue = fixed_args[0]
-    ptr = TuioPointer(s_id, u_id, tu_id, c_id, x_pos, y_pos, radius, bool(press))
+    ptr = TuioPointer(
+        s_id=s_id, u_id=u_id, tu_id=tu_id, c_id=c_id,
+        x_pos=x_pos, y_pos=y_pos, angle=angle,
+        shear=shear, radius=radius, press=bool(press)
+    )
     msg_queue.put({"s_id": s_id, "u_id": u_id, "c_id": c_id, "ptr": ptr})
 
 

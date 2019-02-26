@@ -45,6 +45,8 @@ def extract_ptr_args(pointer: TuioPointer):
         pointer.c_id,
         pointer.x_pos,
         pointer.y_pos,
+        pointer.angle,
+        pointer.shear,
         pointer.radius,
         pointer.press
     ]

@@ -100,13 +100,15 @@ class TuioPointer(TuioSessionElement):
     tu_id_pen = 1
     tu_id_eraser = 2
 
-    def __init__(self, s_id=-1, u_id=-1, tu_id=-1, c_id=-1, x_pos=0.0, y_pos=0.0, radius=0.0, press=False):
+    def __init__(self, s_id=-1, u_id=-1, tu_id=-1, c_id=-1, x_pos=0.0, y_pos=0.0, angle=0.0, shear=0.0, radius=0.0, press=False):
         super().__init__(s_id=s_id)
         self.tu_id = tu_id
         self.c_id = c_id
         self.u_id = u_id
         self.x_pos = x_pos
         self.y_pos = y_pos
+        self.angle = angle
+        self.shear = shear
         self.radius = radius
         self.press = press
 
@@ -130,7 +132,8 @@ class TuioPointer(TuioSessionElement):
         s = "<TuioPointer s_id="+str(self.s_id)+" "
         s += "u_id="+str(self.u_id)+" tu_id="+str(self.tu_id)+ " "
         s += "c_id="+str(self.c_id)+" x_pos="+str(self.x_pos)+ " "
-        s += "y_pos="+str(self.y_pos)+" radius="+str(self.radius)+ " "
+        s += "y_pos="+str(self.y_pos)+" angle="+str(self.radius)+ " "
+        s += "shear="+str(self.shear)+" radius="+str(self.radius)+ " "
         s += "press="+str(self.press)+">"
         return s
 
