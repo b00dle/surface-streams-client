@@ -3,7 +3,7 @@ import time
 
 from pythonosc import udp_client
 from typing import List
-from tuio.tuio_elements import TuioImagePattern, TuioPointer
+from tuio.tuio_elements import TuioImagePattern, TuioPointer, TuioData
 
 
 class OscSender(object):
@@ -52,6 +52,13 @@ def extract_ptr_args(pointer: TuioPointer):
     ]
 
 
+def extract_dat_args(data: TuioData):
+    return [
+        data.mime_type,
+        data.data
+    ]
+
+
 class TuioSender(OscSender):
     def __init__(self, ip, port):
         super().__init__(ip, port)
@@ -68,6 +75,11 @@ class TuioSender(OscSender):
     def send_pointer(self, pointer: TuioPointer):
         if not pointer.is_empty():
             self._send_message("/tuio2/ptr", extract_ptr_args(pointer))
+            for d in pointer.get_data():
+                args = [pointer.s_id, pointer.u_id, pointer.c_id]
+                for arg in extract_dat_args(d):
+                    args.append(arg)
+                self._send_message("/tuio2/dat", args)
 
     def send_pointers(self, pointers: List[TuioPointer]):
         for p in pointers:

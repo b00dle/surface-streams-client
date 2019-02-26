@@ -5,7 +5,7 @@ from processes import ProcessWrapper
 from opencv.cv_udp_video_receiver import CvUdpVideoReceiver
 from tuio.tuio_receiver import TuioReceiver
 from tuio.tuio_sender import TuioSender
-from tuio.tuio_elements import TuioPointer
+from tuio.tuio_elements import TuioPointer, TuioData, TuioElement
 from webutils import api_helper
 
 
@@ -24,7 +24,7 @@ class SurfaceReceiver(ProcessWrapper):
 
     def _compute_launch_command(self):
         args = []
-        args.append("python")
+        args.append("python3")
         args.append(os.path.abspath(__file__))
         args.append("-frame_port")
         args.append(str(self._frame_port))
@@ -51,6 +51,16 @@ class SurfaceReceiver(ProcessWrapper):
     def set_protocol(self, protocol):
         self._video_protocol = protocol
         self._compute_launch_command()
+
+
+def parse_color_bgr(elmt: TuioElement):
+    clr_data = elmt.get_value_by_mime_type("rgb")
+    clr = (0, 255, 0)  # default
+    if clr_data is not None:
+        rgb = TuioData.parse_str_to_rgb(clr_data)
+        if len(rgb) == 3:
+            clr = (rgb[2], rgb[1], rgb[0])
+    return clr
 
 
 if __name__ == "__main__":
@@ -215,8 +225,10 @@ if __name__ == "__main__":
 
         draw_points = {}
 
+        pointers = tuio_server.get_pointers()
+
         # iterate over all tracked pointers
-        for p in tuio_server.get_pointers().values():
+        for p in pointers.values():
             # check next pointer if no data in current
             if p.is_empty():
                 continue
@@ -242,14 +254,15 @@ if __name__ == "__main__":
                 draw_points[p.key()] = (x, y)
 
         # draw gathered paths
-        np_draw_paths = []
         for ptr_key, path in draw_paths.items():
             if len(path) <= 1:
                 continue
-            np_draw_paths.append(np.array([p for p in path], np.int32))
+            draw_path = np.array([p for p in path], np.int32)
             draw_paths[ptr_key] = [path[-1]]
-        if len(np_draw_paths) > 0:
-            cv.polylines(path_frame, np_draw_paths, False, (0, 255, 0), 3) # b, g, r
+            cv.polylines(
+                path_frame, [draw_path], False, parse_color_bgr(pointers[ptr_key]),
+                int(pointers[ptr_key].radius*2.0)
+            )
         # draw gathered erasers
         np_erase_paths = []
         for ptr_key, path in erase_paths.items():
@@ -258,10 +271,16 @@ if __name__ == "__main__":
             np_erase_paths.append(np.array([p for p in path], np.int32))
             erase_paths[ptr_key] = [path[-1]]
         if len(np_erase_paths) > 0:
-            cv.polylines(path_frame, np_erase_paths, False, (0, 0, 0), 10)  # b, g, r
+            cv.polylines(
+                path_frame, np_erase_paths, False, (0, 0, 0),
+                int(pointers[ptr_key].radius*2.0)
+            )
         # draw gathered points
         for ptr_key, point in draw_points.items():
-            cv.circle(point_frame, point, POINTER_RADIUS, (0, 255, 0), -1) # b, g, r
+            cv.circle(
+                point_frame, point, int(pointers[ptr_key].radius),
+                parse_color_bgr(pointers[ptr_key]), -1
+            )
 
         frame = cv.add(cv.add(frame, point_frame), path_frame)
         cv.imshow(WINDOW_NAME, frame)

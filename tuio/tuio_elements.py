@@ -1,4 +1,5 @@
 import copy
+from typing import List
 
 
 class TuioSessionId(object):
@@ -25,8 +26,69 @@ class TuioSessionId(object):
             TuioSessionId._existing.append(s_id)
 
 
-class TuioSessionElement(object):
+class TuioData(object):
+    def __init__(self, mime_type="string", data=""):
+        self.mime_type = mime_type
+        self.data = data
+
+    def __str__(self):
+        s = "<TuioData mime_type="+self.mime_type+" data="+str(self.data)+">"
+        return s
+
+    def __repr__(self):
+        return self.__str__()
+
+    def __eq__(self, other):
+        return other.mime_type == self.mime_type
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    @staticmethod
+    def parse_str_to_rgb(rgb_string: str) -> List[int]:
+        rgb = rgb_string.split(",")
+        if len(rgb) == 3:
+            return [int(c) % 256 for c in rgb]
+        return []
+
+
+class TuioElement(object):
+    def __init__(self):
+        self._data = []
+
+    def append_data(self, data: TuioData, remove_similar=True):
+        if remove_similar:
+            if data in self._data:
+                self._data.remove(data)
+        self._data.append(data)
+
+    def append_data_list(self, data: List[TuioData], remove_similar=True):
+        if remove_similar:
+            for d in data:
+                if d in self._data:
+                    self._data.remove(d)
+        self._data.extend(data)
+
+    def get_data(self):
+        return copy.deepcopy(self._data)
+
+    def get_value_by_mime_type(self, mime_type):
+        for d in self._data:
+            if d.mime_type == mime_type:
+                return d.data
+        return None
+
+    def __str__(self):
+        s = "<TuioElement data="+str(self._data)+">"
+        return s
+
+    def __repr__(self):
+        return self.__str__()
+
+
+class TuioSessionElement(TuioElement):
     def __init__(self, s_id=-1):
+        super().__init__()
         self.s_id = s_id
         if self.s_id == -1:
             self.s_id = TuioSessionId().get()
@@ -42,8 +104,9 @@ class TuioSessionElement(object):
         return self.__str__()
 
 
-class TuioBounds(object):
+class TuioBounds(TuioElement):
     def __init__(self, x_pos=0.0, y_pos=0.0, angle=0.0, width=0.0, height=0.0):
+        super().__init__()
         self.x_pos = x_pos
         self.y_pos = y_pos
         self.angle = angle
@@ -69,8 +132,9 @@ class TuioBounds(object):
         return self.__str__()
 
 
-class TuioSymbol(object):
+class TuioSymbol(TuioElement):
     def __init__(self, uuid=None, tu_id=-1, c_id=-1):
+        super().__init__()
         self.tu_id = tu_id
         self.c_id = c_id
         self.uuid = uuid
@@ -100,7 +164,7 @@ class TuioPointer(TuioSessionElement):
     tu_id_pen = 1
     tu_id_eraser = 2
 
-    def __init__(self, s_id=-1, u_id=-1, tu_id=-1, c_id=-1, x_pos=0.0, y_pos=0.0, angle=0.0, shear=0.0, radius=0.0, press=False):
+    def __init__(self, s_id=-1, u_id=-1, tu_id=-1, c_id=-1, x_pos=0.0, y_pos=0.0, angle=0.0, shear=0.0, radius=10.0, press=False):
         super().__init__(s_id=s_id)
         self.tu_id = tu_id
         self.c_id = c_id

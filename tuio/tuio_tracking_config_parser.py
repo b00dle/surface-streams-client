@@ -1,7 +1,7 @@
 import json
 import os
 from typing import Dict
-from tuio.tuio_elements import TuioImagePattern, TuioPointer
+from tuio.tuio_elements import TuioImagePattern, TuioPointer, TuioData
 from tuio.tuio_tracking_info import TuioTrackingInfo
 
 
@@ -57,45 +57,63 @@ class TuioTrackingConfigParser(object):
         if not self.validate_root_structure(json_data):
             return
 
-        for p_desc in json_data["patterns"]:
-            if "type" not in p_desc or "data" not in p_desc:
+        for elmt_desc in json_data["patterns"]:
+            if "type" not in elmt_desc or "data" not in elmt_desc:
                 print("FAILURE: wrong format for pattern description.")
                 print("  > parser expects definition for 'type' and 'data'")
-                print("  > got", p_desc)
+                print("  > got", elmt_desc)
                 print("  > skipping.")
                 continue
-            if not self._parse_add_element(p_desc["type"], p_desc["data"]):
-                print("FAILURE: couldn't add pattern")
-                print("  > type", p_desc["type"])
-                print("  > data", p_desc["data"])
+            if not self._parse_add_element(elmt_desc["type"], elmt_desc["data"]):
+                print("FAILURE: couldn't add element")
+                print("  > type", elmt_desc["type"])
+                print("  > data", elmt_desc["data"])
 
         self._default_matching_scale = float(json_data["default_matching_scale"])
 
-    def _parse_add_element(self, p_type, p_data):
+    def _parse_add_element(self, elmnt_type, elmnt_data):
         info = None
-        if "tracking_info" in p_data:
-            info = TuioTrackingInfo(**p_data["tracking_info"])
+        if "tracking_info" in elmnt_data:
+            info = TuioTrackingInfo(**elmnt_data["tracking_info"])
         else:
             return False
 
-        if p_type == "image":
+        captured_data = ["tracking_info"]
+        if elmnt_type == "image":
             elmt = TuioImagePattern()
             self._patterns[elmt.get_s_id()] = elmt
             self._pattern_tracking_info[elmt.get_s_id()] = info
-        elif p_type == "pen":
+        elif elmnt_type == "pen":
             elmt = TuioPointer(tu_id=TuioPointer.tu_id_pen)
+            if "radius" in elmnt_data:
+                elmt.radius = float(elmnt_data["radius"])
+                captured_data.append("radius")
             self._pointers[elmt.s_id] = elmt
             self._pointer_tracking_info[elmt.s_id] = info
-        elif p_type == "pointer":
+        elif elmnt_type == "pointer":
             elmt = TuioPointer(tu_id=TuioPointer.tu_id_pointer)
+            if "radius" in elmnt_data:
+                elmt.radius = float(elmnt_data["radius"])
+                captured_data.append("radius")
             self._pointers[elmt.s_id] = elmt
             self._pointer_tracking_info[elmt.s_id] = info
-        elif p_type == "eraser":
+        elif elmnt_type == "eraser":
             elmt = TuioPointer(tu_id=TuioPointer.tu_id_eraser)
+            if "radius" in elmnt_data:
+                elmt.radius = float(elmnt_data["radius"])
+                captured_data.append("radius")
             self._pointers[elmt.s_id] = elmt
             self._pointer_tracking_info[elmt.s_id] = info
         else:
             return False
+
+        misc_data = [
+            TuioData(mime_type=mime_type, data=data)
+            for mime_type, data in elmnt_data.items()
+            if mime_type not in captured_data
+        ]
+
+        elmt.append_data_list(misc_data)
 
         return True
 

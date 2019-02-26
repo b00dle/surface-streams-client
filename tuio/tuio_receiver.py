@@ -3,7 +3,7 @@ import time
 import multiprocessing
 from pythonosc import dispatcher
 from pythonosc import osc_server
-from tuio.tuio_elements import TuioImagePattern, TuioBounds, TuioSymbol, TuioPointer
+from tuio.tuio_elements import TuioImagePattern, TuioBounds, TuioSymbol, TuioPointer, TuioData
 from typing import Dict
 
 
@@ -38,7 +38,7 @@ def sym_handler(path, fixed_args, s_id, u_id, tu_id, c_id, sym_type, sym_value):
     msg_queue.put({"s_id": s_id, "u_id": u_id, "sym": sym})
 
 
-def ptr_handler(path, fixed_args, s_id, u_id, tu_id, c_id, x_pos, y_pos, radius, angle, shear, press, *unused):
+def ptr_handler(path, fixed_args, s_id, u_id, tu_id, c_id, x_pos, y_pos, angle, shear, radius, press):
     msg_queue = fixed_args[0]
     ptr = TuioPointer(
         s_id=s_id, u_id=u_id, tu_id=tu_id, c_id=c_id,
@@ -48,15 +48,23 @@ def ptr_handler(path, fixed_args, s_id, u_id, tu_id, c_id, x_pos, y_pos, radius,
     msg_queue.put({"s_id": s_id, "u_id": u_id, "c_id": c_id, "ptr": ptr})
 
 
+def dat_handler(path, fixed_args, s_id, u_id, c_id, mime_type, data):
+    msg_queue = fixed_args[0]
+    dat = TuioData(mime_type=mime_type, data=data)
+    msg_queue.put({"s_id": s_id, "u_id": u_id, "c_id": c_id, "dat": dat})
+
+
 class TuioDispatcher(dispatcher.Dispatcher):
-    def __init__(self, bnd_queue=multiprocessing.Queue(), sym_queue=multiprocessing.Queue(), ptr_queue=multiprocessing.Queue()):
+    def __init__(self, bnd_queue=multiprocessing.Queue(), sym_queue=multiprocessing.Queue(), ptr_queue=multiprocessing.Queue(), dat_queue=multiprocessing.Queue()):
         super().__init__()
         self.bnd_queue = bnd_queue
         self.sym_queue = sym_queue
         self.ptr_queue = ptr_queue
+        self.dat_queue = dat_queue
         self.map("/tuio2/bnd", bnd_handler, self.bnd_queue)
         self.map("/tuio2/sym", sym_handler, self.sym_queue)
         self.map("/tuio2/ptr", ptr_handler, self.ptr_queue)
+        self.map("/tuio2/dat", dat_handler, self.dat_queue)
 
 
 class TuioReceiver(OscReceiver):
@@ -81,7 +89,7 @@ class TuioReceiver(OscReceiver):
                 "bnd": [num1, ..., numX],
                 "sym": [num1, ..., numY]
             }"""
-        update_log = {"bnd": [], "sym": [], "ptr": []}
+        update_log = {"bnd": [], "sym": [], "ptr": [], "dat": []}
         time_now = time.time()
         # extract bnd updates
         self._process_bnd_updates(update_log, time_now)
@@ -89,6 +97,8 @@ class TuioReceiver(OscReceiver):
         self._process_sym_updates(update_log, time_now)
         # extract ptr updates
         self._process_ptr_updates(update_log, time_now)
+        # extract dat updates
+        self._process_dat_updates(update_log, time_now)
         # remove expired elements
         self._remove_expired_elements(time_now)
         return update_log
@@ -124,10 +134,25 @@ class TuioReceiver(OscReceiver):
             ptr_msg = self._dispatcher.ptr_queue.get()
             ptr = ptr_msg["ptr"]
             key = ptr.key()
+            prev_ptr = None
+            if key in self._pointers:
+                prev_ptr = self._pointers[key]
             self._pointers[key] = ptr
             self._pointer_update_times[key] = timestamp
+            if prev_ptr is not None:
+                self._pointers[key].append_data_list(prev_ptr.get_data())
             if key not in update_log["ptr"]:
                 update_log["ptr"].append(key)
+
+    def _process_dat_updates(self, update_log, timestamp):
+        while not self._dispatcher.dat_queue.empty():
+            dat_msg = self._dispatcher.dat_queue.get()
+            dat = dat_msg["dat"]
+            key = TuioPointer.calc_key(dat_msg["s_id"],dat_msg["u_id"], dat_msg["c_id"])
+            if key in self._pointers:
+                self._pointers[key].append_data(dat, remove_similar=True)
+                self._pointer_update_times[key] = timestamp
+                update_log["dat"].append(key)
 
     def _remove_expired_elements(self, timestamp):
         if self._element_timeout > 0.0:
