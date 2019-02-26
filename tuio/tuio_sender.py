@@ -2,8 +2,8 @@ import argparse
 import time
 
 from pythonosc import udp_client
-
-from tuio.tuio_elements import TuioPattern
+from typing import List
+from tuio.tuio_elements import TuioImagePattern, TuioPointer, TuioData
 
 
 class OscSender(object):
@@ -14,7 +14,7 @@ class OscSender(object):
         self._client.send_message(path, arg_lst)
 
 
-def extract_bnd_args(pattern):
+def extract_bnd_args(pattern: TuioImagePattern):
     return [
         pattern.get_s_id(),
         pattern.get_u_id(),
@@ -26,7 +26,7 @@ def extract_bnd_args(pattern):
     ]
 
 
-def extract_sym_args(pattern):
+def extract_sym_args(pattern: TuioImagePattern):
     return [
         pattern.get_s_id(),
         pattern.get_u_id(),
@@ -37,18 +37,53 @@ def extract_sym_args(pattern):
     ]
 
 
-class TuioPatternSender(OscSender):
+def extract_ptr_args(pointer: TuioPointer):
+    return [
+        pointer.s_id,
+        pointer.u_id,
+        pointer.tu_id,
+        pointer.c_id,
+        pointer.x_pos,
+        pointer.y_pos,
+        pointer.angle,
+        pointer.shear,
+        pointer.radius,
+        pointer.press
+    ]
+
+
+def extract_dat_args(data: TuioData):
+    return [
+        data.mime_type,
+        data.data
+    ]
+
+
+class TuioSender(OscSender):
     def __init__(self, ip, port):
         super().__init__(ip, port)
 
-    def send_pattern(self, pattern):
+    def send_pattern(self, pattern: TuioImagePattern):
         if pattern.is_valid():
             self._send_message("/tuio2/bnd", extract_bnd_args(pattern))
             self._send_message("/tuio2/sym", extract_sym_args(pattern))
 
-    def send_patterns(self, patterns):
+    def send_patterns(self, patterns: List[TuioImagePattern]):
         for p in patterns:
             self.send_pattern(p)
+
+    def send_pointer(self, pointer: TuioPointer):
+        if not pointer.is_empty():
+            self._send_message("/tuio2/ptr", extract_ptr_args(pointer))
+            for d in pointer.get_data():
+                args = [pointer.s_id, pointer.u_id, pointer.c_id]
+                for arg in extract_dat_args(d):
+                    args.append(arg)
+                self._send_message("/tuio2/dat", args)
+
+    def send_pointers(self, pointers: List[TuioPointer]):
+        for p in pointers:
+            self.send_pointer(p)
 
 
 def run_pattern_sender(ip="0.0.0.0", port=5001):
@@ -56,7 +91,7 @@ def run_pattern_sender(ip="0.0.0.0", port=5001):
     import random
     import uuid
 
-    patterns = [TuioPattern(u_id=random.randint(0, 500))
+    patterns = [TuioImagePattern(u_id=random.randint(0, 500))
                 for i in range(0, 10)]
     for p in patterns:
         x = random.randint(0, 10)
@@ -64,7 +99,7 @@ def run_pattern_sender(ip="0.0.0.0", port=5001):
         p.set_bnd(TuioBounds(x, y, 0, 10, 10))
         p.set_sym(TuioSymbol(str(uuid.uuid4())))
 
-    client = TuioPatternSender(ip, port)
+    client = TuioSender(ip, port)
     client.send_patterns(patterns)
 
     for x in range(0,10):

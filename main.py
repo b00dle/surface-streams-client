@@ -12,7 +12,7 @@ LOCAL_SURFACE = 6666    # local port for accessing surface stream data (used as 
 REMOTE_SURFACE = -1     # [-1 means set by server] server port for accessing surface stream data (used for video stream merge)
 METHOD = "gstexec"      # choose webcam or gstexec
 EXECUTABLE_PATH = "/home/companion/surface-streams/realsense"   # path to executable gst surface
-PATTERNS_CONFIG = "CLIENT_DATA/tuio_pattern.txt"                # config file containing all tracking patterns
+PATTERNS_CONFIG = "CLIENT_DATA/tuio_pattern.json"               # config file containing all tracking patterns
 PROTOCOL = "jpeg"                                               # streaming protocol for video stream
 
 
@@ -70,7 +70,7 @@ def main():
     # read command line arguments
     read_args()
 
-    # run each call separately to create 3 clients
+    # run surface streams client using configuration
     client = SurfaceStreamsClient(
         my_ip=MY_IP, server_ip=SERVER_IP, video_send_port=REMOTE_SURFACE,
         method=METHOD, video_protocol=PROTOCOL, executable_path=EXECUTABLE_PATH,

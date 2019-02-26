@@ -1,5 +1,4 @@
 from datetime import datetime
-
 from processes.surface_receiver import SurfaceReceiver
 from processes.surface_tracker import SurfaceTracker
 from processes.webcam_surface import WebcamSurface

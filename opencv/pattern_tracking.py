@@ -211,6 +211,12 @@ class PatternTracking(object):
         for i in range(0, len(paths)):
             self.load_pattern(paths[i], pattern_ids[i], scale)
 
+    def clear_patterns(self):
+        keys = [k for k in self.patterns.keys()]
+        while len(self.patterns) > 0:
+            del self.patterns[keys[0]]
+            keys.pop(0)
+
 
 class PatternTrackingResult(object):
     """ Data Transfer object for Tracking Results. """

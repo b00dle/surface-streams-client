@@ -1,12 +1,14 @@
 import requests
 
 SERVER_IP = "127.0.0.1"
+SERVER_HTTP_PORT = 5000
+SERVER_TUIO_PORT = 5001
 
 
 def upload_image(path):
     global SERVER_IP
     r = requests.post(
-        "http://" + SERVER_IP + ":5000/api/images",
+        "http://" + SERVER_IP + ":" + str(SERVER_HTTP_PORT) + "/api/images",
         data={},
         json={"name": path.split("/")[-1]}
     )
@@ -15,7 +17,7 @@ def upload_image(path):
             data = r.json()
             uuid = data["uuid"]
             r = requests.put(
-                "http://" + SERVER_IP + ":5000/api/images/" + uuid,
+                "http://" + SERVER_IP + ":" + str(SERVER_HTTP_PORT) + "/api/images/" + uuid,
                 files={'data': open(path, 'rb')}
             )
             if r.status_code == 200:
@@ -31,7 +33,7 @@ def upload_image(path):
 def download_image(uuid, img_folder="CLIENT_DATA/"):
     global SERVER_IP
     r = requests.get(
-        "http://" + SERVER_IP + ":5000/api/images/" + uuid,
+        "http://" + SERVER_IP + ":" + str(SERVER_HTTP_PORT) + "/api/images/" + uuid,
         stream=True
     )
     if r.status_code == 200:

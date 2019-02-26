@@ -3,7 +3,9 @@ import cv2 as cv
 import os
 from processes import ProcessWrapper
 from opencv.cv_udp_video_receiver import CvUdpVideoReceiver
-from tuio.tuio_receiver import TuioPatternReceiver
+from tuio.tuio_receiver import TuioReceiver
+from tuio.tuio_sender import TuioSender
+from tuio.tuio_elements import TuioPointer, TuioData, TuioElement
 from webutils import api_helper
 
 
@@ -51,11 +53,20 @@ class SurfaceReceiver(ProcessWrapper):
         self._compute_launch_command()
 
 
+def parse_color_bgr(elmt: TuioElement):
+    clr_data = elmt.get_value_by_mime_type("rgb")
+    clr = (0, 255, 0)  # default
+    if clr_data is not None:
+        rgb = TuioData.parse_str_to_rgb(clr_data)
+        if len(rgb) == 3:
+            clr = (rgb[2], rgb[1], rgb[0])
+    return clr
+
+
 if __name__ == "__main__":
     import sys
-    import signal
-    import time
 
+    # Parse args
     IP = "0.0.0.0"
     FRAME_PORT = 5002
     TUIO_PORT = 5003
@@ -63,7 +74,8 @@ if __name__ == "__main__":
     DOWNLOAD_FOLDER = "CLIENT_DATA/"
     W = 640
     H = 480
-
+    WINDOW_NAME = "SurfaceStreams Receiver"
+    POINTER_RADIUS = 10
     if len(sys.argv) > 1:
         arg_i = 1
         while arg_i < len(sys.argv):
@@ -95,27 +107,91 @@ if __name__ == "__main__":
             arg_i += 1
 
     # TUIO based pattern receiver
-    tuio_server = TuioPatternReceiver(ip=IP, port=TUIO_PORT, pattern_timeout=1.0)
+    tuio_server = TuioReceiver(ip=IP, port=TUIO_PORT, element_timeout=1.0)
     tuio_server.start()
 
+    # Gst & OpenCV based video stream receiver
+    cap = CvUdpVideoReceiver(port=FRAME_PORT, protocol=PROTOCOL)
+
+    # mouse handler for drawing
+    ptr = None
+    ptr_point = None
+    # TODO: hand in params
+    tuio_sender = TuioSender(api_helper.SERVER_IP, api_helper.SERVER_TUIO_PORT)
+
+    def tuio_cursor_doodle(event, x, y, flags, param):
+        global ptr, ptr_point, tuio_sender
+        x_scaled = x/float(W)
+        y_scaled = y/float(H)
+
+        # check draw
+        if event == cv.EVENT_LBUTTONDOWN and ptr is None:
+            ptr = TuioPointer(x_pos=x_scaled, y_pos=y_scaled, tu_id=TuioPointer.tu_id_pen, c_id=-2)
+            ptr_point = None
+        elif event == cv.EVENT_MOUSEMOVE and ptr is None:
+            if ptr_point is None:
+                ptr_point = TuioPointer(x_pos=x_scaled, y_pos=y_scaled, tu_id=TuioPointer.tu_id_pointer, c_id=-2)
+            ptr_point.x_pos = x_scaled
+            ptr_point.y_pos = y_scaled
+            tuio_sender.send_pointer(ptr_point)
+        elif event == cv.EVENT_LBUTTONUP:
+            ptr = None
+
+        # check erase
+        if event == cv.EVENT_RBUTTONDOWN and ptr is None:
+            ptr = TuioPointer(x_pos=x_scaled, y_pos=y_scaled, tu_id=TuioPointer.tu_id_eraser, c_id=-2)
+            ptr_point = None
+        elif event == cv.EVENT_RBUTTONUP:
+            ptr = None
+
+        if ptr is not None:
+            ptr.x_pos = x_scaled
+            ptr.y_pos = y_scaled
+            tuio_sender.send_pointer(ptr)
+
+    cv.namedWindow(WINDOW_NAME, cv.WINDOW_NORMAL)
+    cv.setMouseCallback(WINDOW_NAME, tuio_cursor_doodle)
+
+    # additional resource init
     images = {}
     img_paths = []
-
-    cap = CvUdpVideoReceiver(port=FRAME_PORT, protocol=PROTOCOL)
 
     frame = None
     if cap is None:
         frame = np.zeros((H, W, 3), np.uint8)
 
+    path_frame = None
+    point_frame = None
+    draw_paths = {}
+    draw_points = {}
+    erase_paths = {}
+
     no_capture = False
     while cap.is_capturing():
-        update_log = tuio_server.update_patterns()
+        update_log = tuio_server.update_elements()
 
         if no_capture:
             frame[:, :] = (0, 0, 0)
         elif cap is not None:
             frame = cap.capture()
             H, W, c = frame.shape
+
+        # create drawing frames if necessary
+        if path_frame is None:
+            path_frame = np.zeros((H, W, 3), np.uint8)
+        if point_frame is None:
+            point_frame = np.zeros((H, W, 3), np.uint8)
+
+        # resize drawing frames if necessary
+        H, W, c = frame.shape
+        pH, pW, pc = path_frame.shape
+        if pH != H or pW != W:
+            path_frame = cv.resize(path_frame, (W, H))
+        ptH, ptW, ptc = point_frame.shape
+        if ptH != H or ptW != W:
+            point_frame = cv.resize(point_frame, (W, H))
+        else:
+            point_frame[:, :] = (0, 0, 0)
 
         # iterate over all tracked patterns
         for p in tuio_server.get_patterns().values():
@@ -147,7 +223,67 @@ if __name__ == "__main__":
                 M = cv.getPerspectiveTransform(pts, box)  # order_points(box))
                 frame = cv.warpPerspective(img, M, (W, H), frame, borderMode=cv.BORDER_TRANSPARENT)
 
-        cv.imshow("SurfaceStreams Receiver", frame)
+        draw_points = {}
+
+        pointers = tuio_server.get_pointers()
+
+        # iterate over all tracked pointers
+        for p in pointers.values():
+            # check next pointer if no data in current
+            if p.is_empty():
+                continue
+            # scale position
+            x = int(p.x_pos * W)
+            y = int(p.y_pos * H)
+            # extend drawing paths
+            if p.tu_id == TuioPointer.tu_id_pen:
+                if p.key() not in update_log["ptr"]:
+                    continue
+                if p.key() not in draw_paths:
+                    draw_paths[p.key()] = []
+                draw_paths[p.key()].append([x, y])
+            # extend eraser paths
+            elif p.tu_id == TuioPointer.tu_id_eraser:
+                if p.key() not in update_log["ptr"]:
+                    continue
+                if p.key() not in erase_paths:
+                    erase_paths[p.key()] = []
+                erase_paths[p.key()].append([x, y])
+            # extend drawing points
+            elif p.tu_id == TuioPointer.tu_id_pointer:
+                draw_points[p.key()] = (x, y)
+
+        # draw gathered paths
+        for ptr_key, path in draw_paths.items():
+            if len(path) <= 1:
+                continue
+            draw_path = np.array([p for p in path], np.int32)
+            draw_paths[ptr_key] = [path[-1]]
+            cv.polylines(
+                path_frame, [draw_path], False, parse_color_bgr(pointers[ptr_key]),
+                int(pointers[ptr_key].radius*2.0)
+            )
+        # draw gathered erasers
+        np_erase_paths = []
+        for ptr_key, path in erase_paths.items():
+            if len(path) <= 1:
+                continue
+            np_erase_paths.append(np.array([p for p in path], np.int32))
+            erase_paths[ptr_key] = [path[-1]]
+        if len(np_erase_paths) > 0:
+            cv.polylines(
+                path_frame, np_erase_paths, False, (0, 0, 0),
+                int(pointers[ptr_key].radius*2.0)
+            )
+        # draw gathered points
+        for ptr_key, point in draw_points.items():
+            cv.circle(
+                point_frame, point, int(pointers[ptr_key].radius),
+                parse_color_bgr(pointers[ptr_key]), -1
+            )
+
+        frame = cv.add(cv.add(frame, point_frame), path_frame)
+        cv.imshow(WINDOW_NAME, frame)
 
         key_pressed = cv.waitKey(1) & 0xFF
         if key_pressed == ord('q'):
