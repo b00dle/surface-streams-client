@@ -44,6 +44,8 @@ class TuioTrackingConfigParser(object):
         """ Reads data from json formatted config file. """
         self._patterns = {}
         self._pattern_tracking_info = {}
+        self._pointers = {}
+        self._pointer_tracking_info = {}
         self._default_matching_scale = 0.0
         if len(self._config_path) == 0:
             return

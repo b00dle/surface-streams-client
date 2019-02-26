@@ -1,4 +1,45 @@
-# TODO: better handling of element ids
+import copy
+
+
+class TuioSessionId(object):
+    _current = 0
+    _existing = []
+
+    @staticmethod
+    def get(keep_current=False):
+        s_id = TuioSessionId._current
+        if not keep_current:
+            TuioSessionId._current += 1
+            if s_id in TuioSessionId._existing:
+                s_id = TuioSessionId.get()
+            TuioSessionId._existing.append(s_id)
+        return s_id
+
+    @staticmethod
+    def get_existing():
+        return copy.deepcopy(TuioSessionId._existing)
+
+    @staticmethod
+    def add_existing(s_id):
+        if s_id not in TuioSessionId._existing:
+            TuioSessionId._existing.append(s_id)
+
+
+class TuioSessionElement(object):
+    def __init__(self, s_id=-1):
+        self.s_id = s_id
+        if self.s_id == -1:
+            self.s_id = TuioSessionId().get()
+
+    def is_empty(self):
+        return self.s_id == -1
+
+    def __str__(self):
+        s = "<TuioSessionElement s_id="+str(self.s_id)+">"
+        return s
+
+    def __repr__(self):
+        return self.__str__()
 
 
 class TuioBounds(object):
@@ -30,9 +71,9 @@ class TuioBounds(object):
 
 class TuioSymbol(object):
     def __init__(self, uuid=None, tu_id=-1, c_id=-1):
-        self.uuid = uuid
         self.tu_id = tu_id
         self.c_id = c_id
+        self.uuid = uuid
 
     def is_empty(self):
         return self.uuid is None
@@ -54,31 +95,23 @@ class TuioSymbol(object):
         return self.__str__()
 
 
-class TuioPointer(object):
+class TuioPointer(TuioSessionElement):
     tu_id_pointer = 0
     tu_id_pen = 1
     tu_id_eraser = 2
-    current_pointer_s_id = 1000
 
     def __init__(self, s_id=-1, u_id=-1, tu_id=-1, c_id=-1, x_pos=0.0, y_pos=0.0, radius=0.0, press=False):
-        self.s_id = s_id
-        if self.s_id == -1:
-            self.s_id = TuioPointer.current_pointer_s_id
-            TuioPointer.current_pointer_s_id += 1
-        self.u_id = u_id
+        super().__init__(s_id=s_id)
         self.tu_id = tu_id
         self.c_id = c_id
+        self.u_id = u_id
         self.x_pos = x_pos
         self.y_pos = y_pos
         self.radius = radius
         self.press = press
 
-    def set_next_s_id(self):
-        self.s_id = TuioPointer.current_pointer_s_id
-        TuioPointer.current_pointer_s_id += 1
-
-    def is_empty(self):
-        return self.s_id == -1
+    def refresh_s_id(self):
+        self.s_id = TuioSessionId.get()
 
     def key(self):
         return TuioPointer.calc_key(self.s_id, self.u_id, self.c_id)
@@ -105,14 +138,9 @@ class TuioPointer(object):
         return self.__str__()
 
 
-class TuioImagePattern(object):
-    current_pattern_count = 0
-
-    def __init__(self, s_id=None, bnd=None, sym=None, u_id=-1):
-        self._s_id = s_id
-        if self._s_id is None:
-            self._s_id = TuioImagePattern.current_pattern_count
-            TuioImagePattern.current_pattern_count += 1
+class TuioImagePattern(TuioSessionElement):
+    def __init__(self, s_id=-1, bnd=None, sym=None, u_id=-1):
+        super().__init__(s_id=s_id)
         self._bnd = bnd
         if self._bnd is None:
             self._bnd = TuioBounds()
@@ -122,7 +150,7 @@ class TuioImagePattern(object):
         self._u_id = u_id # user_id
 
     def __str__(self):
-        s = "<TuioPattern s_id="+str(self._s_id)+" "+"u_id="+str(self._u_id)+" "
+        s = "<TuioPattern s_id="+str(self.s_id)+" "+"u_id="+str(self._u_id)+" "
         s += "bnd="+str(self._bnd)+" sym="+str(self._sym)+">"
         return s
 
@@ -133,7 +161,7 @@ class TuioImagePattern(object):
         return not self._bnd.is_empty() and not self._sym.is_empty()
 
     def get_s_id(self):
-        return self._s_id
+        return self.s_id
 
     def get_u_id(self):
         return self._u_id

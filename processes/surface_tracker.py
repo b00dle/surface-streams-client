@@ -49,6 +49,7 @@ def apply_tracking_config(config_parser: TuioTrackingConfigParser, tracker: Patt
     patterns = config_parser.get_patterns()
     pointers = config_parser.get_pointers()
     default_matching_scale = config_parser.get_default_matching_scale()
+    tracker.clear_patterns()
 
     # upload images & set uuids
     pattern_ids = []

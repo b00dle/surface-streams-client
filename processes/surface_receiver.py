@@ -116,11 +116,11 @@ if __name__ == "__main__":
 
         # check draw
         if event == cv.EVENT_LBUTTONDOWN and ptr is None:
-            ptr = TuioPointer(x_pos=x_scaled, y_pos=y_scaled, tu_id=TuioPointer.tu_id_pen)
+            ptr = TuioPointer(x_pos=x_scaled, y_pos=y_scaled, tu_id=TuioPointer.tu_id_pen, c_id=-2)
             ptr_point = None
         elif event == cv.EVENT_MOUSEMOVE and ptr is None:
             if ptr_point is None:
-                ptr_point = TuioPointer(x_pos=x_scaled, y_pos=y_scaled, tu_id=TuioPointer.tu_id_pointer)
+                ptr_point = TuioPointer(x_pos=x_scaled, y_pos=y_scaled, tu_id=TuioPointer.tu_id_pointer, c_id=-2)
             ptr_point.x_pos = x_scaled
             ptr_point.y_pos = y_scaled
             tuio_sender.send_pointer(ptr_point)
@@ -129,7 +129,7 @@ if __name__ == "__main__":
 
         # check erase
         if event == cv.EVENT_RBUTTONDOWN and ptr is None:
-            ptr = TuioPointer(x_pos=x_scaled, y_pos=y_scaled, tu_id=TuioPointer.tu_id_eraser)
+            ptr = TuioPointer(x_pos=x_scaled, y_pos=y_scaled, tu_id=TuioPointer.tu_id_eraser, c_id=-2)
             ptr_point = None
         elif event == cv.EVENT_RBUTTONUP:
             ptr = None
