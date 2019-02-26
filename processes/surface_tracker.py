@@ -57,6 +57,8 @@ def apply_tracking_config(config_parser: TuioTrackingConfigParser, tracker: Patt
         tracking_info = config_parser.get_pattern_tracking_info(p.get_s_id())
         pattern_ids.append(p.get_s_id())
         matching_scale = default_matching_scale
+        if tracking_info.matching_scale > 0:
+            matching_scale = tracking_info.matching_scale
         tracker.load_pattern(
             tracking_info.matching_resource,
             p.get_s_id(),
@@ -74,6 +76,8 @@ def apply_tracking_config(config_parser: TuioTrackingConfigParser, tracker: Patt
         tracking_info = config_parser.get_pointer_tracking_info(p.s_id)
         pointer_ids.append(p.s_id)
         matching_scale = default_matching_scale
+        if tracking_info.matching_scale > 0:
+            matching_scale = tracking_info.matching_scale
         tracker.load_pattern(
             tracking_info.matching_resource,
             p.s_id,
