@@ -1,0 +1,20 @@
+{
+    "patterns" : 
+    [
+        {
+            "type": "image",
+            "data": 
+            {
+               "tracking_info":
+               {
+                   "matching_resource": "/home/companion/Documents/code/git/surface-streams/surface-streams-client/207.jpg",
+                   "varying_upload_resource": "",
+		   "matching_scale": 0.2
+               },
+               "rgb": "0,0,255",
+	       "radius": 10.0
+            }
+        }
+    ],
+    "default_matching_scale": 0.13
+}
