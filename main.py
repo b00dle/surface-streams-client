@@ -14,14 +14,14 @@ METHOD = "gstexec"      # choose webcam or gstexec
 EXECUTABLE_PATH = "/home/companion/surface-streams/realsense"   # path to executable gst surface
 PATTERNS_CONFIG = "CLIENT_DATA/tuio_pattern.json"               # config file containing all tracking patterns
 PROTOCOL = "jpeg"                                               # streaming protocol for video stream
-
+PRE_GST_ARGS = ["!"]
 
 def create_timestamp():
     return datetime.now().strftime(("%Y-%m-%d %H:%M:%S"))
 
 
 def read_args():
-    global MY_IP, SERVER_IP, METHOD, EXECUTABLE_PATH, PROTOCOL, PATTERNS_CONFIG, LOCAL_SURFACE, REMOTE_SURFACE
+    global MY_IP, SERVER_IP, METHOD, EXECUTABLE_PATH, PROTOCOL, PATTERNS_CONFIG, LOCAL_SURFACE, REMOTE_SURFACE, PRE_GST_ARGS
 
     if len(sys.argv) > 1:
         arg_i = 1
@@ -39,6 +39,13 @@ def read_args():
             elif arg == "-execpath":
                 arg_i += 1
                 EXECUTABLE_PATH = sys.argv[arg_i]
+                next_arg_i = arg_i + 1
+                if next_arg_i < len(sys.argv) and not sys.argv[next_arg_i].startswith("-"):
+                    PRE_GST_ARGS = []
+                    while next_arg_i < len(sys.argv) and not sys.argv[next_arg_i].startswith("-"):
+                        PRE_GST_ARGS.append(sys.argv[next_arg_i])
+                        arg_i = next_arg_i
+                        next_arg_i += 1
             elif arg == "-patterns":
                 arg_i += 1
                 PATTERNS_CONFIG = sys.argv[arg_i]
@@ -65,7 +72,7 @@ def read_args():
 
 
 def main():
-    global MY_IP, SERVER_IP, METHOD, EXECUTABLE_PATH, PROTOCOL, PATTERNS_CONFIG, LOCAL_SURFACE, REMOTE_SURFACE
+    global MY_IP, SERVER_IP, METHOD, EXECUTABLE_PATH, PROTOCOL, PATTERNS_CONFIG, LOCAL_SURFACE, REMOTE_SURFACE, PRE_GST_ARGS
 
     # read command line arguments
     read_args()
@@ -74,7 +81,8 @@ def main():
     client = SurfaceStreamsClient(
         my_ip=MY_IP, server_ip=SERVER_IP, video_send_port=REMOTE_SURFACE,
         method=METHOD, video_protocol=PROTOCOL, executable_path=EXECUTABLE_PATH,
-        patterns_config=PATTERNS_CONFIG, surface_port=LOCAL_SURFACE
+        patterns_config=PATTERNS_CONFIG, surface_port=LOCAL_SURFACE,
+        pre_gst_args=PRE_GST_ARGS
     )
     client.run()
 

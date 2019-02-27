@@ -17,10 +17,11 @@ class SurfaceStreamsClient(object):
     def __init__(self, my_ip="0.0.0.0", server_ip="0.0.0.0", video_send_port=5002, method="webcam",
                  executable_path="./realsense", video_protocol="jpeg",
                  patterns_config="CLIENT_DATA/tracking_patterns.txt",
-                 surface_port=6666):
+                 surface_port=6666, pre_gst_args=["!"]):
         api_helper.SERVER_IP = server_ip
         self._method = method
         self._executable_path = executable_path
+        self._pre_gst_args = pre_gst_args
         self._patterns_config = patterns_config
         self._surface_port = surface_port
         self._session = SurfaceStreamsSession(
@@ -71,7 +72,7 @@ class SurfaceStreamsClient(object):
             ret = self._stream_receiver.wait()
             print("SurfaceStreams Stream Receiver Process finished with exit code ", ret)
         else:
-            print("Server connection failed. Aborting.")
+            print("Server co nnection failed. Aborting.")
 
     def _run_gstexec_stream(self):
         # connect to surface streams server
@@ -80,7 +81,7 @@ class SurfaceStreamsClient(object):
             self._video_streamer = ExecutableGstSurface(
                 server_port=self._session.get_video_src_port(), server_ip=api_helper.SERVER_IP,
                 my_port=self._surface_port, executable_path=self._executable_path, protocol=self._session.get_video_protocol(),
-                monitor=True, server_stream_width=640
+                monitor=True, server_stream_width=640, pre_gst_args=self._pre_gst_args
             )
             self._object_streamer = SurfaceTracker(
                 server_ip=api_helper.SERVER_IP, server_tuio_port=5001,
