@@ -85,7 +85,7 @@ class SurfaceStreamsClient(object):
             )
             self._object_streamer = SurfaceTracker(
                 server_ip=api_helper.SERVER_IP, server_tuio_port=5001,
-                frame_port=self._surface_port, frame_width=640, frame_protocol=self._session.get_video_protocol(),
+                frame_port=self._surface_port, frame_width=720, frame_protocol=self._session.get_video_protocol(),
                 patterns_config=self._patterns_config, pattern_scale=0.6
             )
             self._stream_receiver = SurfaceReceiver(

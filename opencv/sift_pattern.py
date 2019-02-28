@@ -50,5 +50,5 @@ class SiftPattern(object):
         if self.is_empty():
             return
         if self._sift is None:
-            self._sift = cv.xfeatures2d.SIFT_create()
+            self._sift = cv.xfeatures2d.SIFT_create(sigma=2.0)
         self._key_points, self._descriptors = self._sift.detectAndCompute(self._img, None)

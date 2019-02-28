@@ -46,7 +46,15 @@ class PatternTrackingThread(threading.Thread):
     def __init__(self, image=None, patterns=[]):
         super().__init__()
         self._flann = FlannMatcher()
-        self._frame_pattern = SiftPattern("THE-FRAME")
+        self._frame_pattern = SiftPattern(
+            "THE-FRAME",
+            cv.xfeatures2d.SIFT_create(
+                #nfeatures=2000,
+                edgeThreshold=12,
+                contrastThreshold=0.02,
+                sigma=0.8
+            )
+        )
         self.results = []
         self.image = image
         self.patterns = patterns
