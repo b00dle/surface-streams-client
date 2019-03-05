@@ -17,11 +17,12 @@ class SurfaceStreamsClient(object):
     def __init__(self, my_ip="0.0.0.0", server_ip="0.0.0.0", video_send_port=5002, method="webcam",
                  executable_path="./realsense", video_protocol="jpeg",
                  patterns_config="CLIENT_DATA/tracking_patterns.txt",
-                 surface_port=6666, pre_gst_args=["!"]):
+                 surface_port=6666, pre_gst_args=["!"], webcam_device="/dev/video0"):
         api_helper.SERVER_IP = server_ip
         self._method = method
         self._executable_path = executable_path
         self._pre_gst_args = pre_gst_args
+        self._webcam_device = webcam_device
         self._patterns_config = patterns_config
         self._surface_port = surface_port
         self._session = SurfaceStreamsSession(
@@ -49,7 +50,7 @@ class SurfaceStreamsClient(object):
             self._video_streamer = WebcamSurface(
                 server_port=self._session.get_video_src_port(), my_port=self._surface_port,
                 server_ip=api_helper.SERVER_IP, protocol=self._session.get_video_protocol(),
-                monitor=False
+                monitor=False, device=self._webcam_device
             )
             self._object_streamer = SurfaceTracker(
                 server_ip=api_helper.SERVER_IP, server_tuio_port=5001,

@@ -15,13 +15,14 @@ EXECUTABLE_PATH = "/home/companion/surface-streams/realsense"   # path to execut
 PATTERNS_CONFIG = "CLIENT_DATA/tuio_pattern.json"               # config file containing all tracking patterns
 PROTOCOL = "jpeg"                                               # streaming protocol for video stream
 PRE_GST_ARGS = ["!"]
+WEBCAM_DEVICE = "/dev/video0"
 
 def create_timestamp():
     return datetime.now().strftime(("%Y-%m-%d %H:%M:%S"))
 
 
 def read_args():
-    global MY_IP, SERVER_IP, METHOD, EXECUTABLE_PATH, PROTOCOL, PATTERNS_CONFIG, LOCAL_SURFACE, REMOTE_SURFACE, PRE_GST_ARGS
+    global MY_IP, SERVER_IP, METHOD, EXECUTABLE_PATH, PROTOCOL, PATTERNS_CONFIG, LOCAL_SURFACE, REMOTE_SURFACE, PRE_GST_ARGS, WEBCAM_DEVICE
 
     if len(sys.argv) > 1:
         arg_i = 1
@@ -36,6 +37,11 @@ def read_args():
             elif arg == "-method":
                 arg_i += 1
                 METHOD = sys.argv[arg_i]
+                if METHOD == "webcam":
+                    next_arg_i = arg_i + 1
+                    if next_arg_i < len(sys.argv) and not sys.argv[next_arg_i].startswith("-"):
+                        arg_i = next_arg_i
+                        WEBCAM_DEVICE = sys.argv[arg_i]
             elif arg == "-execpath":
                 arg_i += 1
                 EXECUTABLE_PATH = sys.argv[arg_i]
@@ -72,7 +78,7 @@ def read_args():
 
 
 def main():
-    global MY_IP, SERVER_IP, METHOD, EXECUTABLE_PATH, PROTOCOL, PATTERNS_CONFIG, LOCAL_SURFACE, REMOTE_SURFACE, PRE_GST_ARGS
+    global MY_IP, SERVER_IP, METHOD, EXECUTABLE_PATH, PROTOCOL, PATTERNS_CONFIG, LOCAL_SURFACE, REMOTE_SURFACE, PRE_GST_ARGS, WEBCAM_DEVICE
 
     # read command line arguments
     read_args()
@@ -82,7 +88,7 @@ def main():
         my_ip=MY_IP, server_ip=SERVER_IP, video_send_port=REMOTE_SURFACE,
         method=METHOD, video_protocol=PROTOCOL, executable_path=EXECUTABLE_PATH,
         patterns_config=PATTERNS_CONFIG, surface_port=LOCAL_SURFACE,
-        pre_gst_args=PRE_GST_ARGS
+        pre_gst_args=PRE_GST_ARGS, webcam_device=WEBCAM_DEVICE
     )
     client.run()
 
