@@ -10,7 +10,8 @@ from webutils import api_helper
 
 
 class SurfaceReceiver(ProcessWrapper):
-    def __init__(self, frame_port, tuio_port, server_ip, width=640, height=480, ip="0.0.0.0", video_protocol="jpeg", download_folder="CLIENT_DATA/"):
+    def __init__(self, frame_port, tuio_port, server_ip, width=640, height=480, ip="0.0.0.0",
+                 video_protocol="jpeg", download_folder="CLIENT_DATA/", user_id=-1):
         super().__init__()
         self._frame_port = frame_port
         self._tuio_port = tuio_port
@@ -20,6 +21,7 @@ class SurfaceReceiver(ProcessWrapper):
         self._height = height
         self._video_protocol = video_protocol
         self._download_folder = download_folder
+        self._user_id = user_id
         self._compute_launch_command()
 
     def _compute_launch_command(self):
@@ -42,6 +44,8 @@ class SurfaceReceiver(ProcessWrapper):
         args.append(str(self._height))
         args.append("-download_folder")
         args.append(str(self._download_folder))
+        args.append("-user_id")
+        args.append(str(self._user_id))
         self._set_process_args(args)
 
     def set_port(self, port):
@@ -76,6 +80,7 @@ if __name__ == "__main__":
     H = 480
     WINDOW_NAME = "SurfaceStreams Receiver"
     POINTER_RADIUS = 10
+    USER_ID = -1
     if len(sys.argv) > 1:
         arg_i = 1
         while arg_i < len(sys.argv):
@@ -104,6 +109,9 @@ if __name__ == "__main__":
             elif arg == "-download_folder":
                 arg_i += 1
                 DOWNLOAD_FOLDER = sys.argv[arg_i]
+            elif arg == "-user_id":
+                arg_i += 1
+                USER_ID = int(sys.argv[arg_i])
             arg_i += 1
 
     # TUIO based pattern receiver
@@ -120,17 +128,19 @@ if __name__ == "__main__":
     tuio_sender = TuioSender(api_helper.SERVER_IP, api_helper.SERVER_TUIO_PORT)
 
     def tuio_cursor_doodle(event, x, y, flags, param):
-        global ptr, ptr_point, tuio_sender
+        global ptr, ptr_point, tuio_sender, USER_ID
         x_scaled = x/float(W)
         y_scaled = y/float(H)
 
         # check draw
         if event == cv.EVENT_LBUTTONDOWN and ptr is None:
-            ptr = TuioPointer(x_pos=x_scaled, y_pos=y_scaled, tu_id=TuioPointer.tu_id_pen, c_id=-2)
+            ptr = TuioPointer(x_pos=x_scaled, y_pos=y_scaled,
+                              tu_id=TuioPointer.tu_id_pen, c_id=-2, u_id=USER_ID)
             ptr_point = None
         elif event == cv.EVENT_MOUSEMOVE and ptr is None:
             if ptr_point is None:
-                ptr_point = TuioPointer(x_pos=x_scaled, y_pos=y_scaled, tu_id=TuioPointer.tu_id_pointer, c_id=-2)
+                ptr_point = TuioPointer(x_pos=x_scaled, y_pos=y_scaled,
+                                        tu_id=TuioPointer.tu_id_pointer, c_id=-2, u_id=USER_ID)
             ptr_point.x_pos = x_scaled
             ptr_point.y_pos = y_scaled
             tuio_sender.send_pointer(ptr_point)
@@ -139,7 +149,8 @@ if __name__ == "__main__":
 
         # check erase
         if event == cv.EVENT_RBUTTONDOWN and ptr is None:
-            ptr = TuioPointer(x_pos=x_scaled, y_pos=y_scaled, tu_id=TuioPointer.tu_id_eraser, c_id=-2)
+            ptr = TuioPointer(x_pos=x_scaled, y_pos=y_scaled,
+                              tu_id=TuioPointer.tu_id_eraser, c_id=-2, u_id=USER_ID)
             ptr_point = None
         elif event == cv.EVENT_RBUTTONUP:
             ptr = None
@@ -202,7 +213,7 @@ if __name__ == "__main__":
         for p in tuio_server.get_patterns().values():
             # check next pattern if pattern data not valid
             # can happen if SYM or BND for pattern hasn't been send/received
-            if not p.is_valid():
+            if not p.is_valid() or (p.get_u_id() != -1 and p.get_u_id() == USER_ID):
                 continue
             uuid = p.get_sym().uuid
             # download image if hasn't been downloaded
@@ -235,7 +246,7 @@ if __name__ == "__main__":
         # iterate over all tracked pointers
         for p in pointers.values():
             # check next pointer if no data in current
-            if p.is_empty():
+            if p.is_empty() or (p.u_id != -1 and p.u_id == USER_ID):
                 continue
             # scale position
             x = int(p.x_pos * W)

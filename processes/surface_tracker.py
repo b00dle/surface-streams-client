@@ -12,7 +12,9 @@ from webutils import api_helper
 
 
 class SurfaceTracker(ProcessWrapper):
-    def __init__(self, pattern_scale=0.13, server_ip="0.0.0.0", server_tuio_port=5001, frame_port=6666, frame_width=640, frame_protocol="jpeg", patterns_config=""):
+    def __init__(self, pattern_scale=0.13, server_ip="0.0.0.0", server_tuio_port=5001,
+                 frame_port=6666, frame_width=640, frame_protocol="jpeg",
+                 patterns_config="", user_id=-1):
         super().__init__()
         self._patterns_config = patterns_config
         self._pattern_scale = pattern_scale
@@ -21,6 +23,7 @@ class SurfaceTracker(ProcessWrapper):
         self._frame_port = frame_port
         self._frame_width = frame_width
         self._frame_protocol = frame_protocol
+        self._user_id = user_id
         self._compute_launch_command()
 
     def _compute_launch_command(self):
@@ -42,6 +45,8 @@ class SurfaceTracker(ProcessWrapper):
         args.append(str(self._frame_width))
         args.append("-frame_protocol")
         args.append(self._frame_protocol)
+        args.append("-user_id")
+        args.append(str(self._user_id))
         self._set_process_args(args)
 
 
@@ -95,6 +100,7 @@ if __name__ == "__main__":
     MATCHING_WIDTH = 640
     PROTOCOL = "jpeg"
     PATTERNS_CONFIG = ""
+    USER_ID = -1
 
     # extract run args
     if len(sys.argv) > 1:
@@ -124,6 +130,9 @@ if __name__ == "__main__":
             elif arg == "-frame_protocol":
                 arg_i += 1
                 PROTOCOL = sys.argv[arg_i]
+            elif arg == "-user_id":
+                arg_i += 1
+                USER_ID = int(sys.argv[arg_i])
             arg_i += 1
 
     # initialize osc sender
@@ -159,6 +168,7 @@ if __name__ == "__main__":
             if res.pattern_id in osc_patterns:
                 # update patterns to send
                 osc_patterns[res.pattern_id].set_bnd(res.bnd)
+                osc_patterns[res.pattern_id].set_u_id(USER_ID)
                 if osc_patterns[res.pattern_id] not in upd_patterns:
                     upd_patterns.append(osc_patterns[res.pattern_id])
                 # draw frame around tracked box
@@ -170,6 +180,7 @@ if __name__ == "__main__":
                 ))
                 frame = cv.polylines(frame, [np.int32(box)], True, 255, 3, cv.LINE_AA)
             elif res.pattern_id in osc_pointers:
+                osc_pointers[res.pattern_id].u_id = USER_ID
                 if osc_pointers[res.pattern_id] not in upd_pointers:
                     upd_pointers.append(osc_pointers[res.pattern_id])
                 bnd = res.bnd.scaled(h,h)

@@ -13,6 +13,7 @@ class SurfaceStreamsSession(object):
         self._video_sink_port = -1
         self._tuio_sink_port = -1
         self._uuid = None
+        self._id = None
 
     def get_my_ip(self):
         return self._my_ip
@@ -34,6 +35,9 @@ class SurfaceStreamsSession(object):
 
     def get_uuid(self):
         return self._uuid
+
+    def get_id(self):
+        return self._id
 
     def connect(self):
         if self._is_connected:
@@ -61,6 +65,7 @@ class SurfaceStreamsSession(object):
                 self._video_sink_port = data["video_sink_port"]
                 self._tuio_sink_port = data["tuio_sink_port"]
                 self._uuid = data["uuid"]
+                self._id = data["id"]
                 self._is_connected = True
                 return True
             else:

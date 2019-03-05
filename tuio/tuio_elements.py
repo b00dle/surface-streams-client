@@ -266,5 +266,8 @@ class TuioImagePattern(TuioSessionElement):
     def set_tu_id(self, tu_id):
         self._sym.tu_id = tu_id
 
+    def set_u_id(self, u_id):
+        self._u_id = u_id
+
     def set_c_id(self, c_id):
         self._sym.c_id = c_id
