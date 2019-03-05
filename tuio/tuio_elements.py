@@ -216,6 +216,13 @@ class TuioImagePattern(TuioSessionElement):
             self._sym = TuioSymbol()
         self._u_id = u_id # user_id
 
+    def key(self):
+        return TuioImagePattern.calc_key(self.s_id, self._u_id)
+
+    @staticmethod
+    def calc_key(s_id, u_id):
+        return str(s_id) + "_" + str(u_id)
+
     def __str__(self):
         s = "<TuioPattern s_id="+str(self.s_id)+" "+"u_id="+str(self._u_id)+" "
         s += "bnd="+str(self._bnd)+" sym="+str(self._sym)+">"

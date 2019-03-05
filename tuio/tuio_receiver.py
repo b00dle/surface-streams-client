@@ -108,26 +108,28 @@ class TuioReceiver(OscReceiver):
             bnd_msg = self._dispatcher.bnd_queue.get()
             s_id = bnd_msg["s_id"]
             u_id = bnd_msg["u_id"]
-            if s_id not in self._patterns.keys():
-                self._patterns[s_id] = TuioImagePattern(s_id=s_id, u_id=u_id)
-            self._patterns[s_id].set_bnd(bnd_msg["bnd"])
-            self._pattern_update_times[s_id] = timestamp
-            if s_id not in update_log["bnd"]:
-                update_log["bnd"].append(s_id)
+            key = TuioImagePattern.calc_key(s_id, u_id)
+            if key not in self._patterns.keys():
+                self._patterns[key] = TuioImagePattern(s_id=s_id, u_id=u_id)
+            self._patterns[key].set_bnd(bnd_msg["bnd"])
+            self._pattern_update_times[key] = timestamp
+            if key not in update_log["bnd"]:
+                update_log["bnd"].append(key)
 
     def _process_sym_updates(self, update_log, timestamp):
         while not self._dispatcher.sym_queue.empty():
             sym_msg = self._dispatcher.sym_queue.get()
             s_id = sym_msg["s_id"]
             u_id = sym_msg["u_id"]
-            if s_id not in self._patterns.keys():
-                self._patterns[s_id] = TuioImagePattern(s_id=s_id, u_id=u_id)
-                self._pattern_update_times[s_id] = timestamp
-            if self._patterns[s_id].get_sym() != sym_msg["sym"]:
-                self._patterns[s_id].set_sym(sym_msg["sym"])
-                self._pattern_update_times[s_id] = timestamp
-                if s_id not in update_log["sym"]:
-                    update_log["sym"].append(s_id)
+            key = TuioImagePattern.calc_key(s_id, u_id)
+            if key not in self._patterns.keys():
+                self._patterns[key] = TuioImagePattern(s_id=s_id, u_id=u_id)
+                self._pattern_update_times[key] = timestamp
+            if self._patterns[key].get_sym() != sym_msg["sym"]:
+                self._patterns[key].set_sym(sym_msg["sym"])
+                self._pattern_update_times[key] = timestamp
+                if key not in update_log["sym"]:
+                    update_log["sym"].append(key)
 
     def _process_ptr_updates(self, update_log, timestamp):
         while not self._dispatcher.ptr_queue.empty():
@@ -156,12 +158,12 @@ class TuioReceiver(OscReceiver):
 
     def _remove_expired_elements(self, timestamp):
         if self._element_timeout > 0.0:
-            pattern_keys = [p_id for p_id in self._patterns.keys()]
-            for p_id in pattern_keys:
-                last_updated = self._pattern_update_times[p_id]
+            pattern_keys = [key for key in self._patterns.keys()]
+            for key in pattern_keys:
+                last_updated = self._pattern_update_times[key]
                 if timestamp - last_updated > self._element_timeout:
-                    del self._patterns[p_id]
-                    del self._pattern_update_times[p_id]
+                    del self._patterns[key]
+                    del self._pattern_update_times[key]
             pointer_keys = [k for k in self._pointers.keys()]
             for k in pointer_keys:
                 last_updated = self._pointer_update_times[k]
@@ -169,13 +171,13 @@ class TuioReceiver(OscReceiver):
                     del self._pointers[k]
                     del self._pointer_update_times[k]
 
-    def get_pattern(self, s_id) -> TuioImagePattern:
-        return self._patterns[s_id]
+    def get_pattern(self, key) -> TuioImagePattern:
+        return self._patterns[key]
 
-    def get_patterns(self, s_ids=[]) -> Dict[int, TuioImagePattern]:
-        if len(s_ids) == 0:
+    def get_patterns(self, keys=[]) -> Dict[int, TuioImagePattern]:
+        if len(keys) == 0:
             return self._patterns
-        return {s_id: self.get_pattern(s_id) for s_id in s_ids}
+        return {key: self.get_pattern(key) for key in keys}
 
     def get_pointer(self, key) -> TuioPointer:
         return self._pointers[key]
