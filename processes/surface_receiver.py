@@ -173,8 +173,13 @@ if __name__ == "__main__":
         if no_capture:
             frame[:, :] = (0, 0, 0)
         elif cap is not None:
+            # get capture frame and resize to window rize
             frame = cap.capture()
+            x, y , w, h = cv.getWindowImageRect(WINDOW_NAME)
             H, W, c = frame.shape
+            if w > 0 and h > 0:
+                frame = cv.resize(frame, (int(w), int(H * (w / W))))
+                H, W, c = frame.shape
 
         # create drawing frames if necessary
         if path_frame is None:
