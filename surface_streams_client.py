@@ -15,7 +15,7 @@ class SurfaceStreamsClient(object):
     _available_methods = ["webcam", "gstexec"]
 
     def __init__(self, my_ip="0.0.0.0", server_ip="0.0.0.0", video_send_port=5002, method="webcam",
-                 executable_path="./realsense", video_protocol="jpeg",
+                 executable_path="./realsense", video_protocol="jpeg", mixing_mode="other",
                  patterns_config="CLIENT_DATA/tracking_patterns.txt",
                  surface_port=6666, pre_gst_args=["!"], webcam_device="/dev/video0"):
         api_helper.SERVER_IP = server_ip
@@ -27,7 +27,8 @@ class SurfaceStreamsClient(object):
         self._surface_port = surface_port
         self._session = SurfaceStreamsSession(
             my_ip=my_ip, name="python-client-" + create_timestamp(),
-            video_src_port=video_send_port, video_protocol=video_protocol
+            video_src_port=video_send_port, video_protocol=video_protocol,
+            mixing_mode=mixing_mode
         )
         # will be filled upon run (depending on set method)
         self._stream_receiver = None

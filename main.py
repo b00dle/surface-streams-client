@@ -14,8 +14,9 @@ METHOD = "gstexec"      # choose webcam or gstexec
 EXECUTABLE_PATH = "/home/companion/surface-streams/realsense"   # path to executable gst surface
 PATTERNS_CONFIG = "CLIENT_DATA/tuio_pattern.json"               # config file containing all tracking patterns
 PROTOCOL = "jpeg"                                               # streaming protocol for video stream
-PRE_GST_ARGS = ["!"]
-WEBCAM_DEVICE = "/dev/video0"
+PRE_GST_ARGS = ["!"]            # when launching gst executable these are the cmd args inserted before the gstreamer pipe built
+WEBCAM_DEVICE = "/dev/video0"   # camera device used for webcam based surface
+MIXING_MODE = "other"           # video mixing mode used for logically merging client streams server side (choose 'other' or 'all')
 
 def create_timestamp():
     return datetime.now().strftime(("%Y-%m-%d %H:%M:%S"))
@@ -64,6 +65,11 @@ def read_args():
             elif arg == "-remotesurface":
                 arg_i += 1
                 REMOTE_SURFACE = int(sys.argv[arg_i])
+            elif arg == "-mixing_mode":
+                arg_i += 1
+                MIXING_MODE = sys.argv[arg_i]
+                if MIXING_MODE not in ["all", "other"]:
+                    raise ValueError("Mixing mode should be 'all' or 'other'\n  > got"+MIXING_MODE)
             arg_i += 1
 
     print("Setting up SurfaceStreams client")
@@ -75,10 +81,12 @@ def read_args():
     print("  > Patterns:", PATTERNS_CONFIG)
     print("  > Local surface port:", LOCAL_SURFACE)
     print("  > Remote surface port:", REMOTE_SURFACE)
+    print("  > Mixing mode:", MIXING_MODE)
 
 
 def main():
-    global MY_IP, SERVER_IP, METHOD, EXECUTABLE_PATH, PROTOCOL, PATTERNS_CONFIG, LOCAL_SURFACE, REMOTE_SURFACE, PRE_GST_ARGS, WEBCAM_DEVICE
+    global MY_IP, SERVER_IP, METHOD, EXECUTABLE_PATH, PROTOCOL, PATTERNS_CONFIG, \
+        LOCAL_SURFACE, REMOTE_SURFACE, PRE_GST_ARGS, WEBCAM_DEVICE, MIXING_MODE
 
     # read command line arguments
     read_args()
@@ -88,7 +96,8 @@ def main():
         my_ip=MY_IP, server_ip=SERVER_IP, video_send_port=REMOTE_SURFACE,
         method=METHOD, video_protocol=PROTOCOL, executable_path=EXECUTABLE_PATH,
         patterns_config=PATTERNS_CONFIG, surface_port=LOCAL_SURFACE,
-        pre_gst_args=PRE_GST_ARGS, webcam_device=WEBCAM_DEVICE
+        pre_gst_args=PRE_GST_ARGS, webcam_device=WEBCAM_DEVICE,
+        mixing_mode=MIXING_MODE
     )
     client.run()
 

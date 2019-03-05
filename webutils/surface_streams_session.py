@@ -3,11 +3,12 @@ from webutils import api_helper
 
 
 class SurfaceStreamsSession(object):
-    def __init__(self, my_ip="0.0.0.0", name="client", video_src_port=5002, video_protocol="jpeg"):
+    def __init__(self, my_ip="0.0.0.0", name="client", video_src_port=5002, video_protocol="jpeg", mixing_mode="other"):
         self._my_ip = my_ip
         self._name = name
         self._video_src_port = video_src_port
         self._video_protocol = video_protocol
+        self._mixing_mode = mixing_mode
         self._is_connected = False
         # retrieved upon connecting
         self._video_sink_port = -1
@@ -33,6 +34,9 @@ class SurfaceStreamsSession(object):
     def get_video_protocol(self):
         return self._video_protocol
 
+    def get_mixing_mode(self):
+        return self._mixing_mode
+
     def get_uuid(self):
         return self._uuid
 
@@ -49,7 +53,8 @@ class SurfaceStreamsSession(object):
             "name": self._name,
             "video_sink_port": self._video_sink_port,
             "video_protocol": self._video_protocol,
-            "tuio_sink_port": self._tuio_sink_port
+            "tuio_sink_port": self._tuio_sink_port,
+            "mixing_mode": self._mixing_mode
         })
         if r.status_code == 200:
             if r.headers['content-type'] == "application/json":
