@@ -70,6 +70,12 @@ def parse_color_bgr(elmt: TuioElement):
 if __name__ == "__main__":
     import sys
 
+    user_colors = []
+    for r in [0, 255]:
+        for g in [0, 255]:
+            for b in [0, 255]:
+                user_colors.append((b, g, r))
+
     # Parse args
     IP = "0.0.0.0"
     FRAME_PORT = 5002
@@ -124,11 +130,12 @@ if __name__ == "__main__":
     # mouse handler for drawing
     ptr = None
     ptr_point = None
-    # TODO: hand in params
     tuio_sender = TuioSender(api_helper.SERVER_IP, api_helper.SERVER_TUIO_PORT)
+    user_rgb = [c for c in reversed(user_colors[USER_ID % len(user_colors)])]
+    user_rgb_dat = TuioData("rgb", TuioData.parse_rgb_to_str(user_rgb))
 
     def tuio_cursor_doodle(event, x, y, flags, param):
-        global ptr, ptr_point, tuio_sender, USER_ID
+        global ptr, ptr_point, tuio_sender, USER_ID, user_rgb_dat
         x_scaled = x/float(W)
         y_scaled = y/float(H)
 
@@ -136,11 +143,13 @@ if __name__ == "__main__":
         if event == cv.EVENT_LBUTTONDOWN and ptr is None:
             ptr = TuioPointer(x_pos=x_scaled, y_pos=y_scaled,
                               tu_id=TuioPointer.tu_id_pen, c_id=-2, u_id=USER_ID)
+            ptr.append_data(user_rgb_dat)
             ptr_point = None
         elif event == cv.EVENT_MOUSEMOVE and ptr is None:
             if ptr_point is None:
                 ptr_point = TuioPointer(x_pos=x_scaled, y_pos=y_scaled,
                                         tu_id=TuioPointer.tu_id_pointer, c_id=-2, u_id=USER_ID)
+                ptr_point.append_data(user_rgb_dat)
             ptr_point.x_pos = x_scaled
             ptr_point.y_pos = y_scaled
             tuio_sender.send_pointer(ptr_point)
@@ -229,7 +238,8 @@ if __name__ == "__main__":
                 (-bnd_s.width, bnd_s.height),
                 bnd_s.angle  # bnd_s.angle if bnd_s.width < bnd_s.height else bnd_s.angle - 90
             ))
-            frame = cv.polylines(frame, [np.int32(box)], True, 255, 3, cv.LINE_AA)
+            clr = user_colors[p.get_u_id() % len(user_colors)]
+            frame = cv.polylines(frame, [np.int32(box)], True, clr, 3, cv.LINE_AA)
             # draw transformed pattern onto frame
             if uuid in images:
                 # transform pattern
@@ -246,7 +256,7 @@ if __name__ == "__main__":
         # iterate over all tracked pointers
         for p in pointers.values():
             # check next pointer if no data in current
-            if p.is_empty() or (p.u_id != -1 and p.u_id == USER_ID):
+            if p.is_empty():
                 continue
             # scale position
             x = int(p.x_pos * W)
@@ -299,6 +309,7 @@ if __name__ == "__main__":
             )
 
         frame = cv.add(cv.add(frame, point_frame), path_frame)
+        frame = cv.rectangle(frame, (10, 10), (40, 40), user_colors[USER_ID % len(user_colors)], cv.FILLED)
         cv.imshow(WINDOW_NAME, frame)
 
         key_pressed = cv.waitKey(1) & 0xFF

@@ -51,6 +51,10 @@ class TuioData(object):
             return [int(c) % 256 for c in rgb]
         return []
 
+    @staticmethod
+    def parse_rgb_to_str(rgb: List[int]) -> str:
+        return str(rgb[0]) + "," + str(rgb[1]) + "," + str(rgb[2])
+
 
 class TuioElement(object):
     def __init__(self):
