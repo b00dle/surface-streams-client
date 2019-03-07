@@ -222,7 +222,7 @@ if __name__ == "__main__":
         for p in tuio_server.get_patterns().values():
             # check next pattern if pattern data not valid
             # can happen if SYM or BND for pattern hasn't been send/received
-            if not p.is_valid() or (p.get_u_id() != -1 and p.get_u_id() == USER_ID):
+            if not p.is_valid(): #or (p.get_u_id() != -1 and p.get_u_id() == USER_ID):
                 continue
             uuid = p.get_sym().uuid
             # download image if hasn't been downloaded

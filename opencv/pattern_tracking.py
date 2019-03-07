@@ -206,18 +206,18 @@ class PatternTracking(object):
                 res.extend(thread.results)
         return res
 
-    def load_pattern(self, path, pattern_id=None, scale=1.0):
+    def load_pattern(self, path, pattern_id=None, matching_scale=1.0):
         if pattern_id is None:
             pattern_id = path.split("/")[-1]
         self.patterns[pattern_id] = SiftPattern(pattern_id, SIFT)
         # load and compute descriptors only once
-        self.patterns[pattern_id].load_image(path, scale)
+        self.patterns[pattern_id].load_image(path, matching_scale)
 
-    def load_patterns(self, paths, pattern_ids=[], scale=1.0):
+    def load_patterns(self, paths, pattern_ids=[], matching_scale=1.0):
         if len(paths) != len(pattern_ids):
             pattern_ids = [None for i in range(0, len(paths))]
         for i in range(0, len(paths)):
-            self.load_pattern(paths[i], pattern_ids[i], scale)
+            self.load_pattern(paths[i], pattern_ids[i], matching_scale)
 
     def clear_patterns(self):
         keys = [k for k in self.patterns.keys()]

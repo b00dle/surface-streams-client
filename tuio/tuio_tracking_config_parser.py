@@ -1,6 +1,7 @@
 import json
 import os
-from typing import Dict
+import cv2 as cv
+from typing import Dict, List
 from tuio.tuio_elements import TuioImagePattern, TuioPointer, TuioData
 from tuio.tuio_tracking_info import TuioTrackingInfo
 
@@ -11,6 +12,7 @@ class TuioTrackingConfigParser(object):
         self._pattern_tracking_info = {}
         self._pointers = {}
         self._pointer_tracking_info = {}
+        self._image_resource_sizes = {}
         self._default_matching_scale = 0.0
         self._config_path = config_path
         self.parse()
@@ -40,12 +42,34 @@ class TuioTrackingConfigParser(object):
     def get_default_matching_scale(self) -> float:
         return self._default_matching_scale
 
+    def has_fixed_resource_scale(self, pattern_s_id: int) -> bool:
+        return len(self.get_pattern_tracking_info(pattern_s_id).fixed_resource_scale) == 2
+
+    def get_image_resource_size(self, pattern_s_id: int) -> List[int]:
+        if pattern_s_id in self._image_resource_sizes:
+            return self._image_resource_sizes[pattern_s_id]
+        elif pattern_s_id not in self._patterns:
+            raise ValueError("Given session_id does not reference an image pattern")
+        tracking_info = self.get_pattern_tracking_info(pattern_s_id)
+        resource = tracking_info.matching_resource
+        if len(tracking_info.varying_upload_resource) > 0:
+            resource = tracking_info.varying_upload_resource
+        img = cv.imread(resource, 0)
+        h, w = img.shape
+        res = [w, h]
+        if len(tracking_info.fixed_resource_scale) == 2:
+            res[0] *= tracking_info.fixed_resource_scale[0]
+            res[1] *= tracking_info.fixed_resource_scale[1]
+        self._image_resource_sizes[pattern_s_id] = res
+        return res
+
     def parse(self):
         """ Reads data from json formatted config file. """
         self._patterns = {}
         self._pattern_tracking_info = {}
         self._pointers = {}
         self._pointer_tracking_info = {}
+        self._image_resource_sizes = {}
         self._default_matching_scale = 0.0
         if len(self._config_path) == 0:
             return

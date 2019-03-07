@@ -166,6 +166,15 @@ if __name__ == "__main__":
 
         for res in tracker.track_concurrent(frame):
             if res.pattern_id in osc_patterns:
+                # set fixed bnd scale if configured
+                if config_parser.has_fixed_resource_scale(res.pattern_id):
+                    sizes = config_parser.get_image_resource_size(res.pattern_id)
+                    s_w = max(sizes[0], sizes[1])
+                    s_h = min(sizes[0], sizes[1])
+                    new_bnd = res.bnd.scaled(h, h)
+                    new_bnd.width = int(s_w)
+                    new_bnd.height = int(s_h)
+                    res.bnd = new_bnd.normalized(h, h)
                 # update patterns to send
                 osc_patterns[res.pattern_id].set_bnd(res.bnd)
                 osc_patterns[res.pattern_id].set_u_id(USER_ID)
