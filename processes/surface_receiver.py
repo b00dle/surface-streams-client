@@ -193,7 +193,7 @@ if __name__ == "__main__":
         if no_capture:
             frame[:, :] = (0, 0, 0)
         elif cap is not None:
-            # get capture frame and resize to window rize
+            # get capture frame and resize to window size
             frame = cap.capture()
             x, y , w, h = cv.getWindowImageRect(WINDOW_NAME)
             H, W, c = frame.shape
@@ -308,10 +308,19 @@ if __name__ == "__main__":
                 parse_color_bgr(pointers[ptr_key]), -1
             )
 
-        frame = cv.add(cv.add(frame, point_frame), path_frame)
+        # overlay point and path frames on current frame
+        if frame.shape == point_frame.shape:
+            frame = cv.add(frame, point_frame)
+        if frame.shape == path_frame.shape:
+            frame = cv.add(frame, path_frame)
+
+        # overlay user color in top left corner
         frame = cv.rectangle(frame, (10, 10), (40, 40), user_colors[USER_ID % len(user_colors)], cv.FILLED)
+
+        # show current frame
         cv.imshow(WINDOW_NAME, frame)
 
+        # handle keys
         key_pressed = cv.waitKey(1) & 0xFF
         if key_pressed == ord('q'):
             break
