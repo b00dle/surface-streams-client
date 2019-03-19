@@ -10,7 +10,7 @@ MY_IP = "0.0.0.0"       # ip server will send merged video and TUIO stream to
 SERVER_IP = "0.0.0.0"   # surface streams server iop
 LOCAL_SURFACE = 6666    # local port for accessing surface stream data (used as CV tracking input)
 REMOTE_SURFACE = -1     # [-1 means set by server] server port for accessing surface stream data (used for video stream merge)
-METHOD = "gstexec"      # choose webcam or gstexec
+INPUT = "gstexec"      # choose webcam or gstexec
 EXECUTABLE_PATH = "/home/companion/surface-streams/realsense"   # path to executable gst surface
 PATTERNS_CONFIG = "CLIENT_DATA/tuio_pattern.json"               # config file containing all tracking patterns
 PROTOCOL = "jpeg"                                               # streaming protocol for video stream
@@ -23,7 +23,7 @@ def create_timestamp():
 
 
 def read_args():
-    global MY_IP, SERVER_IP, METHOD, EXECUTABLE_PATH, PROTOCOL, PATTERNS_CONFIG, LOCAL_SURFACE, REMOTE_SURFACE, PRE_GST_ARGS, WEBCAM_DEVICE, MIXING_MODE
+    global MY_IP, SERVER_IP, INPUT, EXECUTABLE_PATH, PROTOCOL, PATTERNS_CONFIG, LOCAL_SURFACE, REMOTE_SURFACE, PRE_GST_ARGS, WEBCAM_DEVICE, MIXING_MODE
 
     if len(sys.argv) > 1:
         arg_i = 1
@@ -35,10 +35,10 @@ def read_args():
             elif arg == "-server":
                 arg_i += 1
                 SERVER_IP = sys.argv[arg_i]
-            elif arg == "-method":
+            elif arg == "-input":
                 arg_i += 1
-                METHOD = sys.argv[arg_i]
-                if METHOD == "webcam":
+                INPUT = sys.argv[arg_i]
+                if INPUT == "webcam":
                     next_arg_i = arg_i + 1
                     if next_arg_i < len(sys.argv) and not sys.argv[next_arg_i].startswith("-"):
                         arg_i = next_arg_i
@@ -75,7 +75,7 @@ def read_args():
     print("Setting up SurfaceStreams client")
     print("  > My IP:", MY_IP)
     print("  > Server IP:", SERVER_IP)
-    print("  > Method:", METHOD)
+    print("  > Input:", INPUT)
     print("  > Video Protocol:", PROTOCOL)
     print("  > Executable path:", EXECUTABLE_PATH)
     print("  > Patterns:", PATTERNS_CONFIG)
@@ -85,7 +85,7 @@ def read_args():
 
 
 def main():
-    global MY_IP, SERVER_IP, METHOD, EXECUTABLE_PATH, PROTOCOL, PATTERNS_CONFIG, \
+    global MY_IP, SERVER_IP, INPUT, EXECUTABLE_PATH, PROTOCOL, PATTERNS_CONFIG, \
         LOCAL_SURFACE, REMOTE_SURFACE, PRE_GST_ARGS, WEBCAM_DEVICE, MIXING_MODE
 
     # read command line arguments
@@ -94,7 +94,7 @@ def main():
     # run surface streams client using configuration
     client = SurfaceStreamsClient(
         my_ip=MY_IP, server_ip=SERVER_IP, video_send_port=REMOTE_SURFACE,
-        method=METHOD, video_protocol=PROTOCOL, executable_path=EXECUTABLE_PATH,
+        input=INPUT, video_protocol=PROTOCOL, executable_path=EXECUTABLE_PATH,
         patterns_config=PATTERNS_CONFIG, surface_port=LOCAL_SURFACE,
         pre_gst_args=PRE_GST_ARGS, webcam_device=WEBCAM_DEVICE,
         mixing_mode=MIXING_MODE
