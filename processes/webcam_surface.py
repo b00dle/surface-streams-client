@@ -2,7 +2,9 @@ from processes import ProcessWrapper
 
 
 class WebcamSurface(ProcessWrapper):
-    def __init__(self, server_port, my_port, server_ip="0.0.0.0", my_ip="0.0.0.0", protocol="jpeg", device="/dev/video0", server_stream_width=320, monitor=True):
+    def __init__(self, server_port, my_port, server_ip="0.0.0.0", my_ip="0.0.0.0", protocol="jpeg",
+                 device="/dev/video0", server_stream_width=320, monitor=True,
+                 input_adjustment={"saturation":2.0, "brightness":0.1}):
         super().__init__()
         self._server_ip = server_ip
         self._server_port = server_port
@@ -13,6 +15,7 @@ class WebcamSurface(ProcessWrapper):
         self._monitor = monitor
         self._pipeline_description = ""
         self._device = device
+        self._input_adjustment = input_adjustment
         self._compute_launch_command()
 
     def _compute_launch_command(self):
@@ -35,6 +38,12 @@ class WebcamSurface(ProcessWrapper):
             gst_encoding += "avenc_h264 ! rtph265pay"
 
         self._pipeline_description += "v4l2src device="+str(self._device)+" ! decodebin ! videoconvert ! "
+        if len(self._input_adjustment) > 0:
+            self._pipeline_description += "videobalance "
+            for key, value in self._input_adjustment.items():
+                self._pipeline_description += str(key) + "=" + str(value) + " "
+            self._pipeline_description += "! "
+        self._pipeline_description += "videobalance saturation=2.0 brightness=+0.1 ! "
         self._pipeline_description += "aspectratiocrop aspect-ratio=16/9 ! "
         self._pipeline_description += "tee name=t ! queue ! "
         self._pipeline_description += gst_videoscale + " ! "

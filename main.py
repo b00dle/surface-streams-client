@@ -82,7 +82,7 @@ def read_args():
                     raise ValueError("Tracking mode should be 'local' or 'remote'\n  > got" + TRACKING_MODE)
             elif arg == "-tracking_ip":
                 arg_i += 1
-                TRACKING_IP = int(sys.argv[arg_i])
+                TRACKING_IP = sys.argv[arg_i]
             arg_i += 1
 
     print("Setting up SurfaceStreams client")
