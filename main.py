@@ -17,13 +17,18 @@ PROTOCOL = "jpeg"                                               # streaming prot
 PRE_GST_ARGS = ["!"]            # when launching gst executable these are the cmd args inserted before the gstreamer pipe built
 WEBCAM_DEVICE = "/dev/video0"   # camera device used for webcam based surface
 MIXING_MODE = "other"           # video mixing mode used for logically merging client streams server side (choose 'other' or 'all')
+TRACKING_MODE = "local"         # should static objects be tracked ['local', 'remote'], if 'remote' is chosen tracking_ip will determine where to send input surface frames
+TRACKING_IP = "0.0.0.0"         # only evaluated if TRACKING_MODE == 'remote'
+
 
 def create_timestamp():
     return datetime.now().strftime(("%Y-%m-%d %H:%M:%S"))
 
 
 def read_args():
-    global MY_IP, SERVER_IP, INPUT, EXECUTABLE_PATH, PROTOCOL, PATTERNS_CONFIG, LOCAL_SURFACE, REMOTE_SURFACE, PRE_GST_ARGS, WEBCAM_DEVICE, MIXING_MODE
+    global MY_IP, SERVER_IP, INPUT, EXECUTABLE_PATH, PROTOCOL, PATTERNS_CONFIG, \
+        LOCAL_SURFACE, REMOTE_SURFACE, PRE_GST_ARGS, WEBCAM_DEVICE, MIXING_MODE, \
+        TRACKING_MODE, TRACKING_IP
 
     if len(sys.argv) > 1:
         arg_i = 1
@@ -70,6 +75,14 @@ def read_args():
                 MIXING_MODE = sys.argv[arg_i]
                 if MIXING_MODE not in ["all", "other"]:
                     raise ValueError("Mixing mode should be 'all' or 'other'\n  > got"+MIXING_MODE)
+            elif arg == "-tracking_mode":
+                arg_i += 1
+                TRACKING_MODE = sys.argv[arg_i]
+                if TRACKING_MODE not in ["local", "remote"]:
+                    raise ValueError("Tracking mode should be 'local' or 'remote'\n  > got" + TRACKING_MODE)
+            elif arg == "-tracking_ip":
+                arg_i += 1
+                TRACKING_IP = int(sys.argv[arg_i])
             arg_i += 1
 
     print("Setting up SurfaceStreams client")
@@ -82,11 +95,14 @@ def read_args():
     print("  > Local surface port:", LOCAL_SURFACE)
     print("  > Remote surface port:", REMOTE_SURFACE)
     print("  > Mixing mode:", MIXING_MODE)
+    print("  > Tracking mode:", TRACKING_MODE)
+    print("  > Tracking ip:", TRACKING_IP)
 
 
 def main():
     global MY_IP, SERVER_IP, INPUT, EXECUTABLE_PATH, PROTOCOL, PATTERNS_CONFIG, \
-        LOCAL_SURFACE, REMOTE_SURFACE, PRE_GST_ARGS, WEBCAM_DEVICE, MIXING_MODE
+        LOCAL_SURFACE, REMOTE_SURFACE, PRE_GST_ARGS, WEBCAM_DEVICE, MIXING_MODE, \
+        TRACKING_MODE, TRACKING_IP
 
     # read command line arguments
     read_args()
@@ -97,7 +113,8 @@ def main():
         input=INPUT, video_protocol=PROTOCOL, executable_path=EXECUTABLE_PATH,
         patterns_config=PATTERNS_CONFIG, surface_port=LOCAL_SURFACE,
         pre_gst_args=PRE_GST_ARGS, webcam_device=WEBCAM_DEVICE,
-        mixing_mode=MIXING_MODE
+        mixing_mode=MIXING_MODE, tracking_mode=TRACKING_MODE,
+        tracking_ip=TRACKING_IP
     )
     client.run()
 

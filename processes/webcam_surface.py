@@ -2,12 +2,13 @@ from processes import ProcessWrapper
 
 
 class WebcamSurface(ProcessWrapper):
-    def __init__(self, server_port, my_port, server_ip="0.0.0.0", protocol="jpeg", device="/dev/video0", server_stream_width=320, monitor=True):
+    def __init__(self, server_port, my_port, server_ip="0.0.0.0", my_ip="0.0.0.0", protocol="jpeg", device="/dev/video0", server_stream_width=320, monitor=True):
         super().__init__()
         self._server_ip = server_ip
         self._server_port = server_port
         self._server_stream_width = server_stream_width
         self._my_port = my_port
+        self._my_ip = my_ip
         self._protocol = protocol
         self._monitor = monitor
         self._pipeline_description = ""
@@ -41,7 +42,7 @@ class WebcamSurface(ProcessWrapper):
         self._pipeline_description += "udpsink port=" + str(self._server_port) + " host=" + str(self._server_ip) + "  "
         self._pipeline_description += "t. ! queue ! "
         self._pipeline_description += gst_encoding + " ! "
-        self._pipeline_description += "udpsink port=" + str(self._my_port) + "  "
+        self._pipeline_description += "udpsink port=" + str(self._my_port) + " host=" + str(self._my_ip) + "  "
         if self._monitor:
             self._pipeline_description += "t. ! queue ! fpsdisplaysink"
 

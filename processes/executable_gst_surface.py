@@ -7,7 +7,7 @@ class ExecutableGstSurface(ProcessWrapper):
     and streaming data over udp channel.
     """
 
-    def __init__(self, server_port, my_port, server_ip="0.0.0.0", executable_path="./realsense", pre_gst_args=["!"], server_stream_width=320, protocol="jpeg", monitor=True):
+    def __init__(self, server_port, my_port, server_ip="0.0.0.0", my_ip="0.0.0.0", executable_path="./realsense", pre_gst_args=["!"], server_stream_width=320, protocol="jpeg", monitor=True):
         """
         Constructor.
         :param realsense_dir: directory where ./realsense executable can be found.
@@ -19,6 +19,7 @@ class ExecutableGstSurface(ProcessWrapper):
         self._server_port = server_port
         self._server_stream_width = server_stream_width
         self._my_port = my_port
+        self._my_ip = my_ip
         self._executable_path = executable_path
         self._pre_gst_args = pre_gst_args
         self._protocol = protocol
@@ -57,7 +58,7 @@ class ExecutableGstSurface(ProcessWrapper):
         gst_launch_cmd += "udpsink host=" + str(self._server_ip) + " port=" + str(self._server_port) + "  "
         gst_launch_cmd += "t. ! queue ! "
         gst_launch_cmd += gst_encoding + " ! "
-        gst_launch_cmd += "udpsink port=" + str(self._my_port)
+        gst_launch_cmd += "udpsink host=" + str(self._my_ip) + " port=" + str(self._my_port)
         if self._monitor:
             gst_launch_cmd += "  t. ! queue ! fpsdisplaysink"
 

@@ -59,19 +59,20 @@ class SurfaceStreamsSession(object):
         if r.status_code == 200:
             if r.headers['content-type'] == "application/json":
                 data = r.json()
-                print("### SUCCESS connecting client\n  > data", data)
-                print("  > Server is expecting video stream at udp port", data["video_src_port"])
-                print("    > stream format should be", data["video_protocol"])
-                print("  > Server is expecting tuio stream at udp port", 5001)
-                print("  > Server is sending merged video stream to udp port", data["video_sink_port"])
-                print("  > Server is sending merged tuio stream to udp port", data["tuio_sink_port"])
-                print("###")
                 self._video_src_port = data["video_src_port"]
                 self._video_sink_port = data["video_sink_port"]
                 self._tuio_sink_port = data["tuio_sink_port"]
                 self._uuid = data["uuid"]
                 self._id = data["id"]
                 self._is_connected = True
+                print("### SUCCESS connecting client\n  > data", data)
+                print("  > Server is expecting video stream at udp port", data["video_src_port"])
+                print("    > stream format should be", data["video_protocol"])
+                print("  > Server is expecting tuio stream at udp port", 5001)
+                print("  > Server is sending merged video stream to udp port", data["video_sink_port"])
+                print("  > Server is sending merged tuio stream to udp port", data["tuio_sink_port"])
+                print("  > USER ID assigned is", data["id"])
+                print("###")
                 return True
             else:
                 raise ValueError("### API error\n > expecting response json")

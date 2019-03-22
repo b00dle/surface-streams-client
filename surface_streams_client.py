@@ -18,7 +18,7 @@ class SurfaceStreamsClient(object):
                  executable_path="./realsense", video_protocol="jpeg", mixing_mode="other",
                  patterns_config="CLIENT_DATA/tracking_patterns.txt",
                  surface_port=6666, pre_gst_args=["!"], webcam_device="/dev/video0",
-                 tracking_mode="local"):
+                 tracking_mode="local", tracking_ip="0.0.0.0"):
         api_helper.SERVER_IP = server_ip
         self._input = input
         self._executable_path = executable_path
@@ -27,6 +27,7 @@ class SurfaceStreamsClient(object):
         self._patterns_config = patterns_config
         self._surface_port = surface_port
         self._tracking_mode = tracking_mode
+        self._tracking_ip = tracking_ip
         self._session = SurfaceStreamsSession(
             my_ip=my_ip, name="python-client-" + create_timestamp(),
             video_src_port=video_send_port, video_protocol=video_protocol,
@@ -56,21 +57,28 @@ class SurfaceStreamsClient(object):
             print("Server connection failed. Aborting.")
 
     def _init_surface_input(self):
+        if self._input not in SurfaceStreamsClient._available_inputs:
+            raise ValueError("Input '" + self._input + "' not implemented.")
+
+        my_ip = "0.0.0.0"
+        if self._tracking_mode == "remote":
+            my_ip = self._tracking_ip
+
         if self._input == "webcam":
             self._video_streamer = WebcamSurface(
                 server_port=self._session.get_video_src_port(), my_port=self._surface_port,
-                server_ip=api_helper.SERVER_IP, protocol=self._session.get_video_protocol(),
+                server_ip=api_helper.SERVER_IP, my_ip=my_ip,
+                protocol=self._session.get_video_protocol(),
                 monitor=False, device=self._webcam_device
             )
         elif self._input == "gstexec":
             self._video_streamer = ExecutableGstSurface(
                 server_port=self._session.get_video_src_port(), server_ip=api_helper.SERVER_IP,
-                my_port=self._surface_port, executable_path=self._executable_path,
+                my_port=self._surface_port, my_ip=my_ip,
+                executable_path=self._executable_path,
                 protocol=self._session.get_video_protocol(),
                 monitor=True, server_stream_width=640, pre_gst_args=self._pre_gst_args
             )
-        else:
-            raise ValueError("Input '" + self._input + "' not implemented.")
 
     def _init_surface_tracking(self):
         if self._tracking_mode == "local":
