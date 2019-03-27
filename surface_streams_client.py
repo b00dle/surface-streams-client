@@ -4,6 +4,7 @@ from processes.surface_tracker import SurfaceTracker
 from processes.webcam_surface import WebcamSurface
 from processes.executable_gst_surface import ExecutableGstSurface
 from webutils.surface_streams_session import SurfaceStreamsSession
+from webutils.remote_tracking_session import RemoteTrackingSession
 from webutils import api_helper
 
 
@@ -43,10 +44,18 @@ class SurfaceStreamsClient(object):
             raise ValueError("Method '" + self._input + "' not implemented.")
         # connect to surface streams server
         if self._session.connect():
-            # setup input device surface (delivers capture data)
-            self._init_surface_input()
-            # setup tracking of data received by input device (evaluates capture data)
-            self._init_surface_tracking()
+            if self._tracking_mode == "local":
+                # setup input device surface (delivers capture data)
+                self._init_surface_input()
+                # setup tracking of data received by input device (evaluates capture data)
+                self._init_surface_tracking()
+            elif self._tracking_mode == "remote":
+                # order needs to be flipped, because remote tracking server determines port
+                # at which it will receive frame input (surface input needs to adjust accordingly)
+                # setup tracking of data received by input device (evaluates capture data)
+                self._init_surface_tracking()
+                # setup input device surface (delivers capture data)
+                self._init_surface_input()
             # setup receiving of merged video & tracking data from server (produces output frame)
             self._init_surface_receiving()
             # start streaming (blocks until tracking & receiving done)
@@ -89,7 +98,14 @@ class SurfaceStreamsClient(object):
                 user_id=self._session.get_id()
             )
         elif self._tracking_mode == "remote":
-            pass
+            self._object_streamer = RemoteTrackingSession(
+                tracking_server_ip=self._tracking_ip, tracking_server_port=9000,
+                surface_streams_server_ip=api_helper.SERVER_IP, surface_streams_server_tuio_port=5001,
+                frame_width=640, frame_protocol=self._session.get_video_protocol(),
+                patterns_config=self._patterns_config, user_id=self._session.get_id()
+            )
+            if self._object_streamer.connect():
+                self._surface_port = self._object_streamer.get_frame_port()
 
     def _init_surface_receiving(self):
         self._stream_receiver = SurfaceReceiver(
@@ -103,7 +119,7 @@ class SurfaceStreamsClient(object):
     def _run_streaming(self):
         self._video_streamer.start()
         self._stream_receiver.start()
-        if self._object_streamer is not None:
+        if self._object_streamer is not None and self._tracking_mode == "local":
             self._object_streamer.start()
             # wait until object streaming finished
             ret = self._object_streamer.wait()
@@ -122,8 +138,13 @@ class SurfaceStreamsClient(object):
             print("### FAILURE\n  > could not disconnected from server")
 
         try:
-            if self._object_streamer is not None:
+            if self._object_streamer is not None and self._tracking_mode == "local":
                 self._object_streamer.stop()
+            elif self._object_streamer is not None and self._tracking_mode == "remote":
+                if self._object_streamer.disconnect():
+                    print("### SUCCESS\n  > disconnected remote tracking")
+                else:
+                    print("### FAILURE\n  > could not disconnected remote tracking")
         except OSError:
             print("Object Streamer seems to be already closed.")
 

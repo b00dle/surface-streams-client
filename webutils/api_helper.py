@@ -1,4 +1,5 @@
 import requests
+import os
 
 SERVER_IP = "127.0.0.1"
 SERVER_HTTP_PORT = 5000
@@ -23,7 +24,7 @@ def upload_image(path):
             if r.status_code == 200:
                 return uuid
             else:
-                raise ValueError("FAILURE: upload failed with code "+str(r.status_code)+"\n  > reason"+str(r.reason))
+                raise ValueError("FAILURE: Image upload failed with code "+str(r.status_code)+"\n  > reason"+str(r.reason))
         else:
             raise ValueError("FAILURE: server reply format not supported.")
     else:
@@ -50,3 +51,18 @@ def download_image(uuid, img_folder="CLIENT_DATA/"):
             return img_path
     else:
         raise ValueError("FAILURE: could not get image\n  > code" + str(r.status_code) + "\n  > reason" + str(r.reason))
+
+
+def upload_tracking_config(uuid, tracking_server_url, path):
+    if not os.path.exists(path):
+        raise ValueError("FAILURE: tracking config does not exist.\n  > got"+path)
+    print("ATTEMPTING tracking config upload from path", path)
+    r = requests.put(
+        tracking_server_url + "/api/processes/" + uuid,
+        files={'tracking_config': open(path, 'r')}
+    )
+    if r.status_code != 200:
+        raise ValueError(
+            "FAILURE: tracking config upload failed with code " + str(r.status_code)
+            + "\n  > reason" + str(r.reason)
+        )
