@@ -211,7 +211,10 @@ class PatternTracking(object):
             pattern_id = path.split("/")[-1]
         self.patterns[pattern_id] = SiftPattern(pattern_id, SIFT)
         # load and compute descriptors only once
-        self.patterns[pattern_id].load_image(path, matching_scale)
+        try:
+            self.patterns[pattern_id].load_image(path, matching_scale)
+        except cv.error:
+            print("FAILURE: could not load image from path", path)
 
     def load_patterns(self, paths, pattern_ids=[], matching_scale=1.0):
         if len(paths) != len(pattern_ids):

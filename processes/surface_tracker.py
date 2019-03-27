@@ -64,14 +64,15 @@ def apply_tracking_config(config_parser: TuioTrackingConfigParser, tracker: Patt
         matching_scale = default_matching_scale
         if tracking_info.matching_scale > 0:
             matching_scale = tracking_info.matching_scale
+        matching_resource = config_parser.get_full_resource_path(tracking_info.matching_resource)
         tracker.load_pattern(
-            tracking_info.matching_resource,
+            matching_resource,
             p.get_s_id(),
             matching_scale
         )
-        upload_path = tracking_info.matching_resource
+        upload_path = matching_resource
         if len(tracking_info.varying_upload_resource) > 0:
-            upload_path = tracking_info.varying_upload_resource
+            upload_path = config_parser.get_full_resource_path(tracking_info.varying_upload_resource)
         uuid = api_helper.upload_image(upload_path)
         p.set_uuid(uuid)
 
@@ -83,8 +84,9 @@ def apply_tracking_config(config_parser: TuioTrackingConfigParser, tracker: Patt
         matching_scale = default_matching_scale
         if tracking_info.matching_scale > 0:
             matching_scale = tracking_info.matching_scale
+        matching_resource = config_parser.get_full_resource_path(tracking_info.matching_resource)
         tracker.load_pattern(
-            tracking_info.matching_resource,
+            matching_resource,
             p.s_id,
             matching_scale
         )

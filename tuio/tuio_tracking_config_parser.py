@@ -15,11 +15,19 @@ class TuioTrackingConfigParser(object):
         self._image_resource_sizes = {}
         self._default_matching_scale = 0.0
         self._config_path = config_path
+        self._resource_dir = os.path.dirname(self._config_path)
         self.parse()
 
     def set_config_path(self, config_path):
         self._config_path = config_path
+        self._resource_dir = os.path.dirname(self._config_path)
         self.parse()
+
+    def get_resource_dir(self):
+        return self._resource_dir
+
+    def get_full_resource_path(self, resource_filename):
+        return os.path.join(self._resource_dir, resource_filename)
 
     def get_patterns(self) -> Dict[str, TuioImagePattern]:
         return self._patterns
