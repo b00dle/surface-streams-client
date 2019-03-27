@@ -1,6 +1,6 @@
 import requests
 from webutils import api_helper
-
+from tuio.tuio_tracking_config_parser import TuioTrackingConfigParser
 
 class RemoteTrackingSession(object):
     def __init__(self, tracking_server_ip="0.0.0.0", tracking_server_port=9000,
@@ -44,7 +44,10 @@ class RemoteTrackingSession(object):
         if self._is_connected:
             print("### FAILURE\n  > client already connected")
             return False
-        r = requests.post(self.get_tracking_server_url() + "/api/processes", data={}, json={
+
+        tracking_url = self.get_tracking_server_url()
+
+        r = requests.post(tracking_url + "/api/processes", data={}, json={
             "frame_port": self._frame_port,
             "frame_protocol": self._frame_protocol,
             "frame_width": self._frame_width,
@@ -67,9 +70,13 @@ class RemoteTrackingSession(object):
                 print("    > at port", data["tuio_port"])
                 print("  > USER ID assigned is", data["user_id"])
                 if len(self._patterns_config) > 0:
-                    api_helper.upload_tracking_config(
-                        self._uuid, self.get_tracking_server_url(), self._patterns_config
-                    )
+                    # upload all resources necessary to setup tracking
+                    parser = TuioTrackingConfigParser(self._patterns_config)
+                    for resource in parser.get_full_resource_paths():
+                        api_helper.upload_tracking_resource(self._uuid, tracking_url, resource)
+                        print("  > Resource uploaded at", resource)
+                    # upload tracking config (will start tracking if successful)
+                    api_helper.upload_tracking_config(self._uuid, tracking_url, self._patterns_config)
                     print("  > Tracking config uploaded from", self._patterns_config)
                 print("###")
                 return True
