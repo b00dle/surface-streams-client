@@ -1,11 +1,11 @@
 from datetime import datetime
-from processes.surface_receiver import SurfaceReceiver
-from processes.surface_tracker import SurfaceTracker
-from processes.webcam_surface import WebcamSurface
-from processes.executable_gst_surface import ExecutableGstSurface
-from webutils.surface_streams_session import SurfaceStreamsSession
-from webutils.remote_tracking_session import RemoteTrackingSession
-from webutils import api_helper
+from core.processes.surface_receiver import SurfaceReceiver
+from core.processes.surface_tracker import SurfaceTracker
+from core.processes.webcam_surface import WebcamSurface
+from core.processes.executable_gst_surface import ExecutableGstSurface
+from core.webutils.surface_streams_session import SurfaceStreamsSession
+from core.webutils.remote_tracking_session import RemoteTrackingSession
+from core.webutils import api_helper
 
 
 def create_timestamp():
